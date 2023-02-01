@@ -14,6 +14,7 @@ import torch as t
 from torch_geometric.data import Data
 
 rng = np.random.default_rng(0)
+target = "20016"
 
 roi_dict = {
     # "amygdala": ["amygdala"],
@@ -86,13 +87,13 @@ s1 = (
         low_memory=False,
     )
     .set_index("FID")
-    .filter(regex="(.*_(" + "|".join(rois) + ").*_vol)|(Vol_total_volume)")
+    .filter(regex="(.*_(" + "|".join(rois) + f").*_vol)|({target}-2.*)")
     .rename(
         columns=lambda c: "_".join(c.split("_")[1:3])
-        if "total" not in c
+        if f"{target}-2" not in c
         else c
     )
-)[["Vol_total_volume"] + chis_rois]
+)[[f"{target}-2.0"] + chis_rois]
 
 s2 = (
     pd.read_csv(
@@ -101,9 +102,7 @@ s2 = (
     )
     .set_index("FID")
     .filter(regex="(.*[-_](" + "|".join(rois) + ").*_vol.*)")
-    .rename(
-        columns=lambda c: "_".join(c.split("_")[:2]) if "total" not in c else c
-    )
+    .rename(columns=lambda c: "_".join(c.split("_")[:2]))
 )[chis_rois]
 
 fids = (
@@ -112,7 +111,6 @@ fids = (
     .index.intersection((~aff2.isna()).loc[lambda df: df.all(axis=1)].index)
     .intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
     .intersection((~s2.isna()).loc[lambda df: df.all(axis=1)].index)
-    .intersection(s1.loc[lambda df: df["Vol_total_volume"] != -1.0].index)
 )
 
 aff1 = aff1.loc[fids]
@@ -143,19 +141,17 @@ aff1 = pd.concat(
 
 f_data = lambda f: Data(
     x=t.tensor(
-        np.column_stack(
-            [s1.loc[f, chis_rois].values, s2.loc[f, chis_rois].values]
-        ),
+        np.column_stack([s1.loc[f, chis_rois].values]),
         dtype=t.float,
     ),  # node feature matrix of n_nodes x d_node_feat
     edge_index=t.tensor(
         np.row_stack([senders, receivers]), dtype=t.long
-    ),  # 2 x n_edges COO
+    ),  # 2 x n_edges in COO
     edge_attr=t.tensor(
         aff1.loc[f].values.reshape([-1, 1]), dtype=t.float
     ),  # n_edges x d_edge_feat
     y=t.tensor(
-        np.array(s1.loc[f, "Vol_total_volume"]).reshape(1, -1),
+        np.array(s1.loc[f, f"{target}-2.0"]).reshape(1, -1),
         dtype=t.float,
     ),
 )
@@ -164,7 +160,7 @@ num_node_features = f_data(fids[0]).num_node_features
 num_nodes = f_data(fids[0]).num_nodes
 
 
-train_ids = rng.choice(np.arange(len(fids)), size=800, replace=False)
+train_ids = rng.choice(np.arange(len(fids)), size=700, replace=False)
 test_ids = np.setdiff1d(np.arange(len(fids)), train_ids)
 assert len(np.intersect1d(train_ids, test_ids)) == 0
 
@@ -172,4 +168,20 @@ data_list = [f_data(f) for f in fids]
 data_train = [data_list[i] for i in train_ids]
 data_test = [data_list[i] for i in test_ids]
 
-mean_train = np.array(s1.loc[fids[train_ids], "Vol_total_volume"]).mean()
+mean_train = np.array(s1.loc[fids[train_ids], f"{target}-2.0"]).mean()
+std_train = np.array(s1.loc[fids[train_ids], f"{target}-2.0"]).std()
+
+if __name__ == "__main__":
+    print(f"total available: {len(fids)}")
+    print(f"training set size: {len(train_ids)}")
+    print(f"test set size: {len(test_ids)}")
+    print(f"examplar graph:\n {f_data(fids[0])}")
+
+
+"""
+total available: 920
+training set size: 700
+test set size: 220
+examplar graph:
+ Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 1])
+"""

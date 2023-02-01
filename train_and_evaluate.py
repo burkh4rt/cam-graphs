@@ -8,6 +8,8 @@ import numpy as np
 
 import torch as t
 from torch_geometric.loader import DataLoader
+import tqdm
+
 import dataset
 import model
 
@@ -17,17 +19,17 @@ t.manual_seed(0)
 def main():
     mdl = model.GCN()
     mdl.train()
-    optimizer = t.optim.Adam(mdl.parameters(), lr=0.1, weight_decay=1e-2)
+    optimizer = t.optim.Adagrad(mdl.parameters(), lr=0.005, weight_decay=1e-4)
     criterion = t.nn.MSELoss()
 
-    for epoch in range(100):
+    for _ in tqdm.tqdm(range(100)):
         loader_train = DataLoader(
-            dataset.data_train, batch_size=32, shuffle=True
+            dataset.data_train, batch_size=700, shuffle=True
         )
         for data in iter(loader_train):
             out = mdl(data.x, data.edge_index, data.edge_attr, data.batch)
             loss = criterion(out, data.y)
-            # print(loss)
+            print(loss.detach().numpy())
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -48,21 +50,22 @@ def main():
         np.square(preds_test.detach().numpy() - batch_test.y.numpy())
     )
     mse_null = np.mean(np.square(dataset.mean_train - batch_test.y.numpy()))
-    print(f"{mse_test=:.2E}")
-    print(f"{mse_null=:.2E}")
+    print(f"{mse_test=:.2f}")
+    print(f"{mse_null=:.2f}")
     print(f"{mse_test/mse_null=:.2f}")
+    return preds_test.detach().numpy(), batch_test.y.numpy()
 
 
 if __name__ == "__main__":
     import time
 
     t0 = time.time()
-    main()
+    ypred, ytest = main()
     print(f"main() executed in {time.time()-t0:.2f} seconds")
 
 """ output:
-mse_test=7.01E+09
-mse_null=1.37E+10
-mse_test/mse_null=0.51
-main() executed in 19.41 seconds
+mse_test=4.31
+mse_null=4.46
+mse_test/mse_null=0.97
+main() executed in 21.46 seconds
 """
