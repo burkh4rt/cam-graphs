@@ -27,16 +27,16 @@ class GCN(t.nn.Module):
         self.agg = aggr.MultiAggregation(
             ["mean", "std", aggr.SoftmaxAggregation(learn=True)]
         )
-        self.bnorm = BatchNorm1d(71)
-        self.lin1 = Linear(71, 25)
+        self.bnorm = BatchNorm1d(73)
+        self.lin1 = Linear(73, 25)
         self.lin2 = Linear(25, 1)
 
-    def forward(self, x, edge_index, edge_attr, batch):
+    def forward(self, x, edge_index, edge_attr, batch, graph_feats):
         x1 = t.tanh(self.conv1(x, edge_index, edge_attr))
         x1 = self.agg(x1, batch)
         x = to_dense_batch(x, batch, max_num_nodes=dataset.num_nodes)[0]
         x = x.view(-1, x.size(1) * x.size(2))
-        x = t.cat((x1, x), -1)
+        x = t.cat((x1, x, graph_feats), -1)
         x = self.bnorm(x)
         x = t.tanh(self.lin1(x))
         x = AlphaDropout(p=0.1)(x)

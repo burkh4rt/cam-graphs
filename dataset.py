@@ -70,53 +70,40 @@ aff1 = (
         columns=lambda c: "_".join([d for d in c.split("_") if d != "ROI"])
     )
 )
-aff2 = (
-    pd.read_csv(
-        os.path.join("data", "affinity_matrices_dementia_only-follow_up.csv")
-    )
-    .set_index("FID")
-    .filter(regex="^(?!.*(Hippocampus|Amygdala)).*")
-    .rename(
-        columns=lambda c: "_".join([d for d in c.split("_") if d != "ROI"])
-    )
-)
 
 s1 = (
     pd.read_csv(
-        os.path.join("data", "structural_plus-baseline.csv"),
+        os.path.join("data", "biobank-structural_plus-baseline.csv"),
         low_memory=False,
     )
     .set_index("FID")
-    .filter(regex="(.*_(" + "|".join(rois) + f").*_vol)|({target}-2.*)")
+    .assign(
+        age=lambda df: (
+            (
+                pd.to_datetime(df["53-2.0"])
+                - pd.to_datetime(df["34-0.0"], format="%Y")
+            )
+            / pd.Timedelta("365 days")
+        ).round(0),
+        is_fem=lambda df: (abs(df["22001-0.0"]) < 0.5).astype(int),
+    )
+    .filter(
+        regex="(.*_(" + "|".join(rois) + f").*_vol)"
+        f"|({target}-2.*)|(age)|(is_fem)"
+    )
     .rename(
-        columns=lambda c: "_".join(c.split("_")[1:3])
-        if f"{target}-2" not in c
-        else c
+        columns=lambda c: "_".join(c.split("_")[1:3]) if "_vol" in c else c
     )
-)[[f"{target}-2.0"] + chis_rois]
-
-s2 = (
-    pd.read_csv(
-        os.path.join("data", "structural_plus-follow_up.csv"),
-        low_memory=False,
-    )
-    .set_index("FID")
-    .filter(regex="(.*[-_](" + "|".join(rois) + ").*_vol.*)")
-    .rename(columns=lambda c: "_".join(c.split("_")[:2]))
-)[chis_rois]
+)[[f"{target}-2.0", "age", "is_fem"] + chis_rois]
 
 fids = (
     (~aff1.isna())
     .loc[lambda df: df.all(axis=1)]
-    .index.intersection((~aff2.isna()).loc[lambda df: df.all(axis=1)].index)
-    .intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
-    .intersection((~s2.isna()).loc[lambda df: df.all(axis=1)].index)
+    .index.intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
 )
 
 aff1 = aff1.loc[fids]
-aff2 = aff2.loc[fids]
 s1 = s1.loc[fids]
-s2 = s2.loc[fids]
 
 # reconstitute affinity matrices from lower triangular portion
 aff1 = pd.concat(
@@ -151,7 +138,7 @@ f_data = lambda f: Data(
         aff1.loc[f].values.reshape([-1, 1]), dtype=t.float
     ),  # n_edges x d_edge_feat
     y=t.tensor(
-        np.array(s1.loc[f, f"{target}-2.0"]).reshape(1, -1),
+        np.array(s1.loc[f, [f"{target}-2.0", "age", "is_fem"]]).reshape(-1, 3),
         dtype=t.float,
     ),
 )
@@ -159,8 +146,7 @@ f_data = lambda f: Data(
 num_node_features = f_data(fids[0]).num_node_features
 num_nodes = f_data(fids[0]).num_nodes
 
-
-train_ids = rng.choice(np.arange(len(fids)), size=700, replace=False)
+train_ids = rng.choice(np.arange(len(fids)), size=25000, replace=False)
 test_ids = np.setdiff1d(np.arange(len(fids)), train_ids)
 assert len(np.intersect1d(train_ids, test_ids)) == 0
 
@@ -179,9 +165,9 @@ if __name__ == "__main__":
 
 
 """
-total available: 920
-training set size: 700
-test set size: 220
+total available: 28375
+training set size: 25000
+test set size: 3375
 examplar graph:
- Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 1])
+ Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[3, 1])
 """

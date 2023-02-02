@@ -24,11 +24,17 @@ def main():
 
     for _ in tqdm.tqdm(range(100)):
         loader_train = DataLoader(
-            dataset.data_train, batch_size=700, shuffle=True
+            dataset.data_train, 1000  # batch_size=len(dataset.train_ids)
         )
         for data in iter(loader_train):
-            out = mdl(data.x, data.edge_index, data.edge_attr, data.batch)
-            loss = criterion(out, data.y)
+            out = mdl(
+                data.x,
+                data.edge_index,
+                data.edge_attr,
+                data.batch,
+                data.y[:, 1:],
+            )
+            loss = criterion(out, data.y[:, 0].reshape(-1, 1))
             print(loss.detach().numpy())
             loss.backward()
             optimizer.step()
@@ -44,16 +50,18 @@ def main():
         batch_test.edge_index,
         batch_test.edge_attr,
         batch_test.batch,
+        batch_test.y[:, 1:],
     )
 
-    mse_test = np.mean(
-        np.square(preds_test.detach().numpy() - batch_test.y.numpy())
-    )
-    mse_null = np.mean(np.square(dataset.mean_train - batch_test.y.numpy()))
+    ypred = preds_test.detach().numpy().ravel()
+    ytest = batch_test.y[:, 0].numpy().ravel()
+
+    mse_test = np.mean(np.square(ypred - ytest))
+    mse_null = np.mean(np.square(dataset.mean_train - ytest))
     print(f"{mse_test=:.2f}")
     print(f"{mse_null=:.2f}")
     print(f"{mse_test/mse_null=:.2f}")
-    return preds_test.detach().numpy(), batch_test.y.numpy()
+    return ypred, ytest
 
 
 if __name__ == "__main__":
@@ -64,8 +72,8 @@ if __name__ == "__main__":
     print(f"main() executed in {time.time()-t0:.2f} seconds")
 
 """ output:
-mse_test=4.31
-mse_null=4.46
-mse_test/mse_null=0.97
-main() executed in 21.46 seconds
+mse_test=3.98
+mse_null=4.14
+mse_test/mse_null=0.96
+main() executed in 523.74 seconds
 """
