@@ -102,8 +102,17 @@ fids = (
     .index.intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
 )
 
+train_ids = rng.choice(np.arange(len(fids)), size=25000, replace=False)
+test_ids = np.setdiff1d(np.arange(len(fids)), train_ids)
+assert len(np.intersect1d(train_ids, test_ids)) == 0
+assert len(np.union1d(train_ids, test_ids)) == len(fids)
+
 aff1 = aff1.loc[fids]
 s1 = s1.loc[fids]
+y1 = s1[[f"{target}-2.0", "age", "is_fem"]]
+s1 = s1.drop(columns=y1.columns)
+s1 -= s1.loc[fids[train_ids]].mean(axis=0)
+s1 /= s1.loc[fids[train_ids]].std(axis=0)
 
 # reconstitute affinity matrices from lower triangular portion
 aff1 = pd.concat(
@@ -138,7 +147,7 @@ f_data = lambda f: Data(
         aff1.loc[f].values.reshape([-1, 1]), dtype=t.float
     ),  # n_edges x d_edge_feat
     y=t.tensor(
-        np.array(s1.loc[f, [f"{target}-2.0", "age", "is_fem"]]).reshape(-1, 3),
+        np.array(y1.loc[f, [f"{target}-2.0", "age", "is_fem"]]).reshape(-1, 3),
         dtype=t.float,
     ),
 )
@@ -146,16 +155,12 @@ f_data = lambda f: Data(
 num_node_features = f_data(fids[0]).num_node_features
 num_nodes = f_data(fids[0]).num_nodes
 
-train_ids = rng.choice(np.arange(len(fids)), size=25000, replace=False)
-test_ids = np.setdiff1d(np.arange(len(fids)), train_ids)
-assert len(np.intersect1d(train_ids, test_ids)) == 0
-
 data_list = [f_data(f) for f in fids]
 data_train = [data_list[i] for i in train_ids]
 data_test = [data_list[i] for i in test_ids]
 
-mean_train = np.array(s1.loc[fids[train_ids], f"{target}-2.0"]).mean()
-std_train = np.array(s1.loc[fids[train_ids], f"{target}-2.0"]).std()
+mean_train = np.array(y1.loc[fids[train_ids], f"{target}-2.0"]).mean()
+std_train = np.array(y1.loc[fids[train_ids], f"{target}-2.0"]).std()
 
 if __name__ == "__main__":
     print(f"total available: {len(fids)}")

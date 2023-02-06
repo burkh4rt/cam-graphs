@@ -10,7 +10,7 @@ It requires datasets available on zfs to be placed in the folder `data`:
 <!---
 format code with:
 ```
-black code/
+black .
 prettier --write --print-width 79 --prose-wrap always *.md
 ```
 
