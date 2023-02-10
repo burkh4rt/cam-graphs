@@ -4,16 +4,22 @@
 Imports dataset and model, runs training, and evaluates on a held-out dataset
 """
 
+import os
+
 import numpy as np
 
 import torch as t
 from torch_geometric.loader import DataLoader
+from torch_geometric.explain import Explainer, GNNExplainer
+from captum.attr import IntegratedGradients
+from torch_geometric.nn import to_captum_model, to_captum_input
 import tqdm
 
 import dataset
 import model
 
 t.manual_seed(0)
+np.random.seed(0)
 
 
 def evaluate(mdl: model.GCN) -> float:
@@ -43,6 +49,7 @@ def train(mdl: model.GCN) -> model.GCN:
     criterion = t.nn.MSELoss()
 
     for _ in tqdm.tqdm(range(10)):
+        print(evaluate(mdl))
         loader_train = DataLoader(
             dataset.data_train, 1000  # batch_size=len(dataset.train_ids)
         )
@@ -61,14 +68,8 @@ def train(mdl: model.GCN) -> model.GCN:
     return mdl
 
 
-def main():
-    mdl = model.GCN()
-    mdl = train(mdl)
-    print(evaluate(mdl))
-
-
 if __name__ == "__main__":
-    import time
+    # import time
 
     # print contents of file to screen to remember what settings used when
     # running multiple versions simultaneously
@@ -79,9 +80,39 @@ if __name__ == "__main__":
     #     print(f.read())
     #     print("%" * 79)
 
-    t0 = time.time()
-    main()
-    print(f"main() executed in {time.time()-t0:.2f} seconds")
+    mdl = model.GCN()
+    mdl.load_state_dict(t.load(os.path.join("tmp", "mdl-age.ckpt")))
+    # mdl = train(mdl)
+    # t.save(mdl.state_dict(), os.path.join("tmp", "mdl-age.ckpt"))
+
+    output_idx = 0
+    batch_test = next(
+        iter(DataLoader(dataset.data_test, batch_size=len(dataset.test_ids)))
+    )
+
+    explainer = Explainer(
+        model=mdl,
+        algorithm=GNNExplainer(epochs=200),
+        explainer_config=dict(
+            explanation_type="model",
+            node_mask_type="object"
+        ),
+        model_config=dict(
+            mode="regression",
+            task_level="graph",
+            return_type="raw",
+        ),
+    )
+
+    explanation = explainer.get_prediction(
+        batch_test.x,
+        batch_test.edge_index,
+        batch_test.edge_attr,
+        batch_test.batch,
+        batch_test.y[:, 1:],
+    )
+
+    print(explanation)
 
 """ output:
 0.9614568

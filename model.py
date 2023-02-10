@@ -24,14 +24,6 @@ class GCN(t.nn.Module):
             improved=True,
             bias=False,
         )
-        # self.conv2 = GATConv(
-        #     3,
-        #     3,
-        #     add_self_loops=False,  # we've already included these
-        #     normalize=False,
-        #     improved=True,
-        #     bias=False,
-        # )
         self.agg = aggr.MultiAggregation(
             ["mean", "std", aggr.SoftmaxAggregation(learn=True)]
         )
@@ -42,7 +34,6 @@ class GCN(t.nn.Module):
 
     def forward(self, x, edge_index, edge_attr, batch, graph_feats):
         x1 = t.tanh(self.conv1(x, edge_index, edge_attr))
-        # x1 = t.tanh(self.conv2(x1, edge_index, edge_attr))
         x1 = self.agg(x1, batch)
         x1 = self.bnorm1(x1)
         x = to_dense_batch(x, batch, max_num_nodes=dataset.num_nodes)[0]

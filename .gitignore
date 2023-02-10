@@ -1,6 +1,7 @@
 # idiosyncratic
 data/*
 flashlight/*
+tmp/*
 
 # Created by https://www.toptal.com/developers/gitignore/api/tex,latex,linux,macos,python,windows,pycharm+all,microsoftoffice,intellij+all
 # Edit at https://www.toptal.com/developers/gitignore?templates=tex,latex,linux,macos,python,windows,pycharm+all,microsoftoffice,intellij+all

@@ -147,7 +147,7 @@ f_data = lambda f: Data(
         aff1.loc[f].values.reshape([-1, 1]), dtype=t.float
     ),  # n_edges x d_edge_feat
     y=t.tensor(
-        np.array(y1.loc[f, [f"{target}-2.0", "age", "is_fem"]]).reshape(-1, 3),
+        np.array(y1.loc[f, ["age", f"{target}-2.0", "is_fem"]]).reshape(-1, 3),
         dtype=t.float,
     ),
 )
@@ -161,6 +161,26 @@ data_test = [data_list[i] for i in test_ids]
 
 mean_train = np.array(y1.loc[fids[train_ids], f"{target}-2.0"]).mean()
 std_train = np.array(y1.loc[fids[train_ids], f"{target}-2.0"]).std()
+
+train_mean = Data(
+    x=t.tensor(
+        s1.loc[fids[train_ids], chis_rois].values.mean(axis=0, keepdims=True),
+        dtype=t.float,
+    ),  # node feature matrix of n_nodes x d_node_feat
+    edge_index=t.tensor(
+        np.row_stack([senders, receivers]), dtype=t.long
+    ),  # 2 x n_edges in COO
+    edge_attr=t.tensor(
+        aff1.loc[fids[train_ids]].values.mean(axis=0, keepdims=True),
+        dtype=t.float,
+    ),  # n_edges x d_edge_feat
+    y=t.tensor(
+        y1.loc[
+            fids[train_ids], ["age", f"{target}-2.0", "is_fem"]
+        ].values.mean(axis=0, keepdims=True),
+        dtype=t.float,
+    ),
+)
 
 if __name__ == "__main__":
     print(f"total available: {len(fids)}")
