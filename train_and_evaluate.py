@@ -19,7 +19,9 @@ import model
 t.manual_seed(0)
 
 
-def evaluate(mdl: model.GCN, return_preds=False) -> float:
+def evaluate(
+    mdl: model.GCN, return_preds=False
+) -> float | tuple[float, dict[str, np.array]]:
     mdl.eval()
     loader_test = DataLoader(
         dataset.data_test, batch_size=len(dataset.test_ids)
@@ -49,6 +51,7 @@ def train(mdl: model.GCN) -> model.GCN:
     criterion = t.nn.MSELoss()
 
     for _ in tqdm.tqdm(range(30)):
+        print(evaluate(mdl))
         loader_train = DataLoader(
             dataset.data_train, 1000  # batch_size=len(dataset.train_ids)
         )
@@ -67,7 +70,20 @@ def train(mdl: model.GCN) -> model.GCN:
     return mdl
 
 
-def main():
+if __name__ == "__main__":
+    import time
+
+    # print contents of file to screen to remember what settings used when
+    # running multiple versions simultaneously
+    # with open(__file__) as f:
+    #     print(f.read())
+    #     print("%" * 79)
+    # with open(model.__file__) as f:
+    #     print(f.read())
+    #     print("%" * 79)
+
+    t0 = time.time()
+
     mdl = model.GCN()
     mdl = train(mdl)
     t.save(
@@ -81,36 +97,28 @@ def main():
             + ".ckpt",
         ),
     )
-    print(evaluate(mdl))
+    # mdl.load_state_dict(
+    #     t.load(os.path.join("tmp", "mdl-age-20230313T1421Z.ckpt"))
+    # )
 
-
-if __name__ == "__main__":
-    import time
-
-    # print contents of file to screen to remember what settings used when
-    # running multiple versions simultaneously
-    # with open(__file__) as f:
-    #     print(f.read())
-    #     print("%" * 79)
-    # with open(model.__file__) as f:
-    #     print(f.read())
-    #     print("%" * 79)
-
-    # t0 = time.time()
-    # main()
-    # print(f"main() executed in {time.time()-t0:.2f} seconds")
-
-    mdl = model.GCN()
-    mdl.load_state_dict(
-        t.load(os.path.join("tmp", "mdl-age-20230313T1421Z.ckpt"))
-    )
     n_mse, pred_true_dict = evaluate(mdl, return_preds=True)
     ytrue, ypred = pred_true_dict["trues"], pred_true_dict["preds"]
 
-    print("mse null:", np.mean(np.square(ytrue - dataset.mean_train)))
-    print("mse ours:", np.mean(np.square(ytrue - ypred)))
+    print(
+        "rmse null: {rmse:.2f}".format(
+            rmse=np.sqrt(np.mean(np.square(ytrue - dataset.mean_train)))
+        )
+    )
+    print(
+        "rmse ours: {rmse:.2f}".format(
+            rmse=np.sqrt(np.mean(np.square(ytrue - ypred)))
+        )
+    )
+
+    print(f"executed in {time.time()-t0:.2f} seconds")
 
 """ output:
-0.5501894
-main() executed in 574.80 seconds
+rmse null: 7.44
+rmse ours: 5.38
+executed in 361.26 seconds
 """

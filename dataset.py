@@ -67,6 +67,9 @@ age_graph_features = [
     "vol_hyper_25781_2_0",
     "vol_grey_matter_25006_2_0",
     "vol_white_matter_25008_2_0",
+    "body_mass_index_bmi_f21001_2_0",
+    "mean_time_to_correctly_identify_matches_f20023_2_0",
+    "maximum_digits_remembered_correctly_f4282_2_0",
 ]
 
 senders, receivers = map(
@@ -114,7 +117,11 @@ s1 = (
         }
     )
     .filter(
-        regex="(.*_(" + "|".join(rois) + f").*_vol)" f"|(age)|(is_fem)|(vol_)"
+        regex="(.*_(" + "|".join(rois) + f").*_vol)"
+        f"|(age)|(is_fem)|(vol_)"
+        f"|(body_mass_index_bmi_f21001_2_0)"
+        f"|(mean_time_.*_f20023_2_0)"
+        f"|(maximum_digits_.*_f4282_2_0)"
     )
     .rename(
         columns=lambda c: "_".join(c.split("_")[1:3]) if "_vol" in c else c
@@ -127,7 +134,7 @@ fids = (
     .index.intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
 )
 
-train_ids = rng.choice(np.arange(len(fids)), size=25000, replace=False)
+train_ids = rng.choice(np.arange(len(fids)), size=15000, replace=False)
 test_ids = np.setdiff1d(np.arange(len(fids)), train_ids)
 assert len(np.intersect1d(train_ids, test_ids)) == 0
 assert len(np.union1d(train_ids, test_ids)) == len(fids)
@@ -204,9 +211,9 @@ if __name__ == "__main__":
 
 
 """
-total available: 30658
-training set size: 25000
-test set size: 5658
+total available: 20113
+training set size: 15000
+test set size: 5113
 examplar graph:
- Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 5])
+ Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 8])
 """
