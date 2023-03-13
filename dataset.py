@@ -61,9 +61,9 @@ ukb_column_lookup = (
     .set_index("field.html")
     .to_dict()["col.name"]
 )
-age_graph_features = [
-    "age",
+fem_graph_features = [
     "is_fem",
+    "age",
     "vol_hyper_25781_2_0",
     "vol_grey_matter_25006_2_0",
     "vol_white_matter_25008_2_0",
@@ -126,7 +126,7 @@ s1 = (
     .rename(
         columns=lambda c: "_".join(c.split("_")[1:3]) if "_vol" in c else c
     )
-)[age_graph_features + chis_rois]
+)[fem_graph_features + chis_rois]
 
 fids = (
     (~aff1.isna())
@@ -141,15 +141,15 @@ assert len(np.union1d(train_ids, test_ids)) == len(fids)
 
 aff1 = aff1.loc[fids]
 s1 = s1.loc[fids]
-y1 = s1[age_graph_features]
+y1 = s1[fem_graph_features]
 s1 = s1.drop(columns=y1.columns)
 s1 -= s1.loc[fids[train_ids]].mean(axis=0)
 s1 /= s1.loc[fids[train_ids]].std(axis=0)
-y1.loc[:, age_graph_features[1:]] -= y1.loc[
-    fids[train_ids], age_graph_features[1:]
+y1.loc[:, fem_graph_features[1:]] -= y1.loc[
+    fids[train_ids], fem_graph_features[1:]
 ].mean(axis=0)
-y1.loc[:, age_graph_features[1:]] /= y1.loc[
-    fids[train_ids], age_graph_features[1:]
+y1.loc[:, fem_graph_features[1:]] /= y1.loc[
+    fids[train_ids], fem_graph_features[1:]
 ].std(axis=0)
 
 # reconstitute affinity matrices from lower triangular portion
@@ -185,8 +185,8 @@ f_data = lambda f: Data(
         aff1.loc[f].values.reshape([-1, 1]), dtype=t.float
     ),  # n_edges x d_edge_feat
     y=t.tensor(
-        np.array(y1.loc[f, age_graph_features]).reshape(
-            -1, len(age_graph_features)
+        np.array(y1.loc[f, fem_graph_features]).reshape(
+            -1, len(fem_graph_features)
         ),
         dtype=t.float,
     ),
@@ -194,7 +194,7 @@ f_data = lambda f: Data(
 
 num_node_features = f_data(fids[0]).num_node_features
 num_nodes = f_data(fids[0]).num_nodes
-num_graph_features = len(age_graph_features[1:])
+num_graph_features = len(fem_graph_features[1:])
 
 data_list = [f_data(f) for f in fids]
 data_train = [data_list[i] for i in train_ids]

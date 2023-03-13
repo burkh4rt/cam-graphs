@@ -8,6 +8,7 @@ import datetime
 import os
 
 import numpy as np
+import sklearn.metrics as skl_mets
 
 import torch as t
 from torch_geometric.loader import DataLoader
@@ -36,21 +37,19 @@ def evaluate(
     )
     ypred = preds_test.detach().numpy().ravel()
     ytest = batch_test.y[:, 0].numpy().ravel()
-    mse_test = np.mean(np.square(ypred - ytest))
-    mse_null = np.mean(np.square(dataset.mean_train - ytest))
+    auc_test = skl_mets.roc_auc_score(ytest, ypred)
     mdl.train()
     if return_preds:
-        return mse_test / mse_null, {"preds": ypred, "trues": ytest}
+        return auc_test, {"preds": ypred, "trues": ytest}
     else:
-        return mse_test / mse_null
+        return auc_test
 
 
 def train(mdl: model.GCN) -> model.GCN:
     mdl.train()
     optimizer = t.optim.Adagrad(mdl.parameters(), lr=0.05, weight_decay=1e-4)
-    criterion = t.nn.MSELoss()
 
-    for _ in tqdm.tqdm(range(30)):
+    for _ in tqdm.tqdm(range(10)):
         print(evaluate(mdl))
         loader_train = DataLoader(
             dataset.data_train, 1000  # batch_size=len(dataset.train_ids)
@@ -63,7 +62,9 @@ def train(mdl: model.GCN) -> model.GCN:
                 data.batch,
                 data.y[:, 1:],
             )
-            loss = criterion(out, data.y[:, 0].reshape(-1, 1))
+            loss = t.nn.functional.binary_cross_entropy(
+                out, data.y[:, 0].reshape(-1, 1)
+            )
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -71,7 +72,7 @@ def train(mdl: model.GCN) -> model.GCN:
 
 
 if __name__ == "__main__":
-    import time
+    # import time
 
     # print contents of file to screen to remember what settings used when
     # running multiple versions simultaneously
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     #     print(f.read())
     #     print("%" * 79)
 
-    t0 = time.time()
+    # t0 = time.time()
 
     mdl = model.GCN()
     mdl = train(mdl)
@@ -90,7 +91,7 @@ if __name__ == "__main__":
         mdl.state_dict(),
         os.path.join(
             "tmp",
-            "mdl-age-"
+            "mdl-sex-"
             + datetime.datetime.now(datetime.timezone.utc).strftime(
                 "%Y%m%dT%H%MZ"
             )
@@ -101,24 +102,25 @@ if __name__ == "__main__":
     #     t.load(os.path.join("tmp", "mdl-age-20230313T1421Z.ckpt"))
     # )
 
-    n_mse, pred_true_dict = evaluate(mdl, return_preds=True)
+    auc, pred_true_dict = evaluate(mdl, return_preds=True)
     ytrue, ypred = pred_true_dict["trues"], pred_true_dict["preds"]
 
+    print("auc: {auc:.2f}".format(auc=skl_mets.roc_auc_score(ytrue, ypred)))
     print(
-        "rmse null: {rmse:.2f}".format(
-            rmse=np.sqrt(np.mean(np.square(ytrue - dataset.mean_train)))
+        "acc: {acc:.2f}".format(
+            acc=skl_mets.accuracy_score(ytrue, (ypred > 0.5).astype(int))
         )
     )
     print(
-        "rmse ours: {rmse:.2f}".format(
-            rmse=np.sqrt(np.mean(np.square(ytrue - ypred)))
+        "f1:  {f1:.2f}".format(
+            f1=skl_mets.f1_score(ytrue, (ypred > 0.5).astype(int))
         )
     )
 
-    print(f"executed in {time.time()-t0:.2f} seconds")
+    # print(f"executed in {time.time()-t0:.2f} seconds")
 
 """ output:
-rmse null: 7.44
-rmse ours: 5.38
-executed in 361.26 seconds
+auc: 0.89
+acc: 0.81
+f1:  0.82
 """

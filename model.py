@@ -50,7 +50,8 @@ class GCN(t.nn.Module):
         x = t.tanh(self.lin1(x))
         x = self.bnorm2(x)
         x = self.lin2(x)
-        return dataset.std_train * x + dataset.mean_train
+        x = t.sigmoid(dataset.std_train * x + dataset.mean_train)
+        return x
 
 
 if __name__ == "__main__":
