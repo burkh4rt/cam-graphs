@@ -17,20 +17,21 @@ class GCN(t.nn.Module):
     def __init__(self):
         super().__init__()
         self.gat_out_channels = 3
+        self.gat_heads = 3
         self.conv1 = GATConv(
             dataset.num_node_features,
             self.gat_out_channels,
+            heads=self.gat_heads,
             add_self_loops=False,  # we've already included these
-            normalize=False,
             improved=True,
             bias=False,
         )
         self.agg = aggr.MultiAggregation(
             ["mean", "std", aggr.SoftmaxAggregation(learn=True)]
         )
-        self.bnorm1 = BatchNorm1d(9)
+        self.bnorm1 = BatchNorm1d(3 * self.gat_out_channels * self.gat_heads)
         self.lin1 = Linear(
-            3 * self.gat_out_channels
+            3 * self.gat_out_channels * self.gat_heads
             + dataset.num_node_features * dataset.num_nodes
             + dataset.num_graph_features,
             5,
@@ -82,14 +83,14 @@ if __name__ == "__main__":
 
 """ output:
 GCN(
-  (conv1): GATConv(1, 3, heads=1)
+  (conv1): GATConv(1, 3, heads=3)
   (agg): MultiAggregation([
     MeanAggregation(),
     StdAggregation(),
     SoftmaxAggregation(learn=True),
   ], mode=cat)
-  (bnorm1): BatchNorm1d(9, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-  (lin1): Linear(in_features=75, out_features=5, bias=True)
+  (bnorm1): BatchNorm1d(27, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (lin1): Linear(in_features=97, out_features=5, bias=True)
   (bnorm2): BatchNorm1d(5, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (lin2): Linear(in_features=5, out_features=1, bias=True)
 )

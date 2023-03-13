@@ -71,6 +71,7 @@ target_plus_graph_features = [
     "vol_white_matter_25008_2_0",
     "body_mass_index_bmi_f21001_2_0",
     "mean_time_to_correctly_identify_matches_f20023_2_0",
+    "maximum_digits_remembered_correctly_f4282_2_0",
 ]
 
 senders, receivers = map(
@@ -134,7 +135,7 @@ fids = (
     .index.intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
 )
 
-train_ids = rng.choice(np.arange(len(fids)), size=20000, replace=False)
+train_ids = rng.choice(np.arange(len(fids)), size=15000, replace=False)
 test_ids = np.setdiff1d(np.arange(len(fids)), train_ids)
 assert len(np.intersect1d(train_ids, test_ids)) == 0
 assert len(np.union1d(train_ids, test_ids)) == len(fids)
@@ -215,9 +216,9 @@ if __name__ == "__main__":
 
 
 """
-total available: 20113
+total available: 19988
 training set size: 15000
-test set size: 5113
+test set size: 4988
 examplar graph:
- Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 8])
+ Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 9])
 """

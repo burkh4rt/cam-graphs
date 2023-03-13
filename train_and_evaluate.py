@@ -51,7 +51,6 @@ def train(mdl: model.GCN) -> model.GCN:
     criterion = t.nn.MSELoss()
 
     for _ in tqdm.tqdm(range(10)):
-        print(evaluate(mdl))
         loader_train = DataLoader(
             dataset.data_train, 1000  # batch_size=len(dataset.train_ids)
         )
@@ -120,8 +119,8 @@ if __name__ == "__main__":
     print(f"executed in {time.time()-t0:.2f} seconds")
 
 """ output:
-norm. mse: 0.95
-rmse null: 2.05
-rmse ours: 2.00
-executed in 246.42 seconds
+norm. mse: 0.86
+rmse null: 2.04
+rmse ours: 1.90
+executed in 216.13 seconds
 """
