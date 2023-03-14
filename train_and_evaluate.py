@@ -4,11 +4,6 @@
 Imports dataset and model, runs training, and evaluates on a held-out dataset
 """
 
-import datetime
-import os
-
-import numpy as np
-
 import torch as t
 from torch_geometric.loader import DataLoader
 import tqdm
@@ -17,41 +12,51 @@ import dataset
 import model
 
 t.manual_seed(0)
+criterion = t.nn.MSELoss()
 
 
-def evaluate(
-    mdl: model.GCN, return_preds=False
-) -> float | tuple[float, dict[str, np.array]]:
+def loss_val(mdl):
     mdl.eval()
-    loader_test = DataLoader(
-        dataset.data_test, batch_size=len(dataset.test_ids)
+    return criterion(
+        mdl(
+            dataset.batch_val.x,
+            dataset.batch_val.edge_index,
+            dataset.batch_val.edge_attr,
+            dataset.batch_val.batch,
+            dataset.batch_val.y[:, 1:],
+        ),
+        dataset.batch_val.y[:, 0].reshape(-1, 1),
     )
-    batch_test = next(iter(loader_test))
-    preds_test = mdl(
-        batch_test.x,
-        batch_test.edge_index,
-        batch_test.edge_attr,
-        batch_test.batch,
-        batch_test.y[:, 1:],
+
+
+def loss_test(mdl):
+    mdl.eval()
+    return criterion(
+        mdl(
+            dataset.batch_test.x,
+            dataset.batch_test.edge_index,
+            dataset.batch_test.edge_attr,
+            dataset.batch_test.batch,
+            dataset.batch_test.y[:, 1:],
+        ),
+        dataset.batch_test.y[:, 0].reshape(-1, 1),
     )
-    ypred = preds_test.detach().numpy().ravel()
-    ytest = batch_test.y[:, 0].numpy().ravel()
-    mse_test = np.mean(np.square(ypred - ytest))
-    mse_null = np.mean(np.square(dataset.mean_train - ytest))
-    mdl.train()
-    if return_preds:
-        return mse_test / mse_null, {"preds": ypred, "trues": ytest}
-    else:
-        return mse_test / mse_null
+
+
+def loss_test_null():
+    return criterion(
+        dataset.mean_train
+        * t.ones_like(dataset.batch_test.y[:, 0].reshape(-1, 1)),
+        dataset.batch_test.y[:, 0].reshape(-1, 1),
+    )
 
 
 def train(mdl: model.GCN) -> model.GCN:
-    mdl.train()
     optimizer = t.optim.Adagrad(mdl.parameters(), lr=0.05, weight_decay=1e-4)
-    criterion = t.nn.MSELoss()
 
-    for _ in tqdm.tqdm(range(30)):
-        print(evaluate(mdl))
+    for _ in tqdm.tqdm(range(10)):
+        print("{:.3f}".format(loss_val(mdl).detach().numpy()))
+        mdl.train()
         loader_train = DataLoader(
             dataset.data_train, 1000  # batch_size=len(dataset.train_ids)
         )
@@ -86,39 +91,27 @@ if __name__ == "__main__":
 
     mdl = model.GCN()
     mdl = train(mdl)
-    t.save(
-        mdl.state_dict(),
-        os.path.join(
-            "tmp",
-            "mdl-age-"
-            + datetime.datetime.now(datetime.timezone.utc).strftime(
-                "%Y%m%dT%H%MZ"
-            )
-            + ".ckpt",
-        ),
-    )
-    # mdl.load_state_dict(
-    #     t.load(os.path.join("tmp", "mdl-age-20230313T1421Z.ckpt"))
-    # )
 
-    n_mse, pred_true_dict = evaluate(mdl, return_preds=True)
-    ytrue, ypred = pred_true_dict["trues"], pred_true_dict["preds"]
-
-    print(
-        "rmse null: {rmse:.2f}".format(
-            rmse=np.sqrt(np.mean(np.square(ytrue - dataset.mean_train)))
-        )
-    )
-    print(
-        "rmse ours: {rmse:.2f}".format(
-            rmse=np.sqrt(np.mean(np.square(ytrue - ypred)))
-        )
-    )
+    print("val mse:  {:.3f}".format(loss_val(mdl).detach().numpy()))
+    print("test mse: {:.3f}".format(loss_test(mdl).detach().numpy()))
+    print("test mse (null): {:.3f}".format(loss_test_null().detach().numpy()))
 
     print(f"executed in {time.time()-t0:.2f} seconds")
 
 """ output:
-rmse null: 7.44
-rmse ours: 5.38
-executed in 361.26 seconds
+  0%|          | 0/10 [00:00<?, ?it/s]61.468
+ 10%|█         | 1/10 [00:11<01:40, 11.16s/it]42.386
+ 20%|██        | 2/10 [00:22<01:27, 10.98s/it]39.117
+ 30%|███       | 3/10 [00:32<01:16, 10.86s/it]38.024
+ 40%|████      | 4/10 [00:43<01:04, 10.79s/it]37.130
+ 50%|█████     | 5/10 [00:54<00:54, 10.81s/it]36.803
+ 60%|██████    | 6/10 [01:05<00:43, 10.95s/it]36.848
+ 70%|███████   | 7/10 [01:16<00:32, 10.89s/it]36.785
+ 80%|████████  | 8/10 [01:27<00:22, 11.04s/it]36.184
+ 90%|█████████ | 9/10 [01:38<00:11, 11.10s/it]36.752
+100%|██████████| 10/10 [01:49<00:00, 11.00s/it]
+val mse:  35.707
+test mse: 35.733
+test mse (null): 54.910
+executed in 111.69 seconds
 """

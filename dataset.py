@@ -11,7 +11,8 @@ import pandas as pd
 import numpy as np
 
 import torch as t
-from torch_geometric.data import Data
+import torch_geometric.loader as t_loader
+import torch_geometric.data as t_data
 
 rng = np.random.default_rng(0)
 
@@ -61,7 +62,7 @@ ukb_column_lookup = (
     .set_index("field.html")
     .to_dict()["col.name"]
 )
-age_graph_features = [
+target_plus_graph_features = [
     "age",
     "is_fem",
     "vol_hyper_25781_2_0",
@@ -117,16 +118,15 @@ s1 = (
         }
     )
     .filter(
-        regex="(.*_(" + "|".join(rois) + f").*_vol)"
-        f"|(age)|(is_fem)|(vol_)"
-        f"|(body_mass_index_bmi_f21001_2_0)"
-        f"|(mean_time_.*_f20023_2_0)"
-        f"|(maximum_digits_.*_f4282_2_0)"
+        regex="(.*_("
+        + "|".join(rois)
+        + f").*_vol)|"
+        + "|".join(target_plus_graph_features)
     )
     .rename(
         columns=lambda c: "_".join(c.split("_")[1:3]) if "_vol" in c else c
     )
-)[age_graph_features + chis_rois]
+)[target_plus_graph_features + chis_rois]
 
 fids = (
     (~aff1.isna())
@@ -134,22 +134,30 @@ fids = (
     .index.intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
 )
 
-train_ids = rng.choice(np.arange(len(fids)), size=15000, replace=False)
-test_ids = np.setdiff1d(np.arange(len(fids)), train_ids)
-assert len(np.intersect1d(train_ids, test_ids)) == 0
-assert len(np.union1d(train_ids, test_ids)) == len(fids)
+train_ids = rng.choice(np.arange(len(fids)), size=10000, replace=False)
+val_ids = rng.choice(
+    np.setdiff1d(np.arange(len(fids)), train_ids), size=5000, replace=False
+)
+test_ids = np.setdiff1d(np.arange(len(fids)), np.union1d(train_ids, val_ids))
+assert (
+    len(np.intersect1d(train_ids, val_ids))
+    == len(np.intersect1d(train_ids, test_ids))
+    == len(np.intersect1d(val_ids, test_ids))
+    == 0
+)
+assert len(np.union1d(train_ids, np.union1d(val_ids, test_ids))) == len(fids)
 
 aff1 = aff1.loc[fids]
 s1 = s1.loc[fids]
-y1 = s1[age_graph_features]
+y1 = s1[target_plus_graph_features]
 s1 = s1.drop(columns=y1.columns)
 s1 -= s1.loc[fids[train_ids]].mean(axis=0)
 s1 /= s1.loc[fids[train_ids]].std(axis=0)
-y1.loc[:, age_graph_features[1:]] -= y1.loc[
-    fids[train_ids], age_graph_features[1:]
+y1.loc[:, target_plus_graph_features[1:]] -= y1.loc[
+    fids[train_ids], target_plus_graph_features[1:]
 ].mean(axis=0)
-y1.loc[:, age_graph_features[1:]] /= y1.loc[
-    fids[train_ids], age_graph_features[1:]
+y1.loc[:, target_plus_graph_features[1:]] /= y1.loc[
+    fids[train_ids], target_plus_graph_features[1:]
 ].std(axis=0)
 
 # reconstitute affinity matrices from lower triangular portion
@@ -173,7 +181,7 @@ aff1 = pd.concat(
     ]
 ]
 
-f_data = lambda f: Data(
+f_data = lambda f: t_data.Data(
     x=t.tensor(
         np.column_stack([s1.loc[f, chis_rois].values]),
         dtype=t.float,
@@ -185,8 +193,8 @@ f_data = lambda f: Data(
         aff1.loc[f].values.reshape([-1, 1]), dtype=t.float
     ),  # n_edges x d_edge_feat
     y=t.tensor(
-        np.array(y1.loc[f, age_graph_features]).reshape(
-            -1, len(age_graph_features)
+        np.array(y1.loc[f, target_plus_graph_features]).reshape(
+            -1, len(target_plus_graph_features)
         ),
         dtype=t.float,
     ),
@@ -194,25 +202,52 @@ f_data = lambda f: Data(
 
 num_node_features = f_data(fids[0]).num_node_features
 num_nodes = f_data(fids[0]).num_nodes
-num_graph_features = len(age_graph_features[1:])
+num_graph_features = len(target_plus_graph_features[1:])
 
 data_list = [f_data(f) for f in fids]
 data_train = [data_list[i] for i in train_ids]
+data_val = [data_list[i] for i in val_ids]
 data_test = [data_list[i] for i in test_ids]
 
-mean_train = np.array(y1.loc[fids[train_ids], "age"]).mean()
-std_train = np.array(y1.loc[fids[train_ids], "age"]).std()
+mean_train = np.array(
+    y1.loc[fids[train_ids], target_plus_graph_features[0]]
+).mean()
+std_train = np.array(
+    y1.loc[fids[train_ids], target_plus_graph_features[0]]
+).std()
+
+batch_val = next(
+    iter(
+        t_loader.DataLoader(
+            data_val,
+            batch_size=len(val_ids),
+            shuffle=False,
+        )
+    )
+)
+
+batch_test = next(
+    iter(
+        t_loader.DataLoader(
+            data_test,
+            batch_size=len(test_ids),
+            shuffle=False,
+        )
+    )
+)
 
 if __name__ == "__main__":
     print(f"total available: {len(fids)}")
     print(f"training set size: {len(train_ids)}")
+    print(f"validation set size: {len(val_ids)}")
     print(f"test set size: {len(test_ids)}")
     print(f"examplar graph:\n {f_data(fids[0])}")
 
 
 """
 total available: 20113
-training set size: 15000
+training set size: 10000
+validation set size: 5000
 test set size: 5113
 examplar graph:
  Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 8])
