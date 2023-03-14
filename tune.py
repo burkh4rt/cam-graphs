@@ -10,8 +10,7 @@ import os
 import torch as t
 from torch_geometric.loader import DataLoader
 
-import ray.tune as tune
-import ray.air as air
+import optuna as opt
 
 import dataset
 import model
@@ -19,10 +18,12 @@ import model
 t.manual_seed(0)
 
 
-def train(config: dict):
+def objective(trial):
     mdl = model.GCN()
     optimizer = t.optim.Adagrad(
-        mdl.parameters(), lr=config["lr"], weight_decay=config["wd"]
+        mdl.parameters(),
+        lr=trial.suggest_float("lr", 1e-3, 1e-2),
+        weight_decay=trial.suggest_float("wd", 1e-4, 1e-3),
     )
     criterion = t.nn.MSELoss()
 
@@ -44,91 +45,48 @@ def train(config: dict):
             optimizer.step()
             optimizer.zero_grad()
 
-            mdl.eval()
-            batch_val = next(
-                iter(
-                    DataLoader(
-                        dataset.data_val,
-                        batch_size=len(dataset.val_ids),
-                        shuffle=False,
-                    )
-                )
+    mdl.eval()
+    batch_val = next(
+        iter(
+            DataLoader(
+                dataset.data_val,
+                batch_size=len(dataset.val_ids),
+                shuffle=False,
             )
-            loss_val = criterion(
-                mdl(
-                    batch_val.x,
-                    batch_val.edge_index,
-                    batch_val.edge_attr,
-                    batch_val.batch,
-                    batch_val.y[:, 1:],
-                ),
-                batch_val.y[:, 0],
-            )
-            print(loss_val)
-            tune.report(mse=loss_val)
-        t.save(
-            mdl.state_dict(),
-            os.path.join(
-                os.path.dirname(__file__),
-                "tmp",
-                "mdl-fluid_intell-"
-                + datetime.datetime.now(datetime.timezone.utc).strftime(
-                    "%Y%m%dT%H%MZ"
-                )
-                + ".ckpt",
-            ),
         )
-    return mdl
+    )
+    loss_val = criterion(
+        mdl(
+            batch_val.x,
+            batch_val.edge_index,
+            batch_val.edge_attr,
+            batch_val.batch,
+            batch_val.y[:, 1:],
+        ),
+        batch_val.y[:, 0].reshape(-1, 1),
+    )
+    return loss_val
 
 
 if __name__ == "__main__":
-    tuner = tune.Tuner(
-        train,
-        param_space={
-            "lr": tune.loguniform(1e-3, 1e-1),
-            "wd": tune.loguniform(1e-5, 1e-3),
-        },
-        tune_config=tune.TuneConfig(mode="min", metric="mse"),
-        run_config=air.RunConfig(
-            local_dir=os.path.join(os.path.dirname(__file__), "tmp-tuner"),
-            name="tuner_experiment",
-        ),
-    )
-    results = tuner.fit()
+    study = opt.create_study()
+    study.optimize(objective, n_trials=10)
 
-""" output:
-...
-(train pid=13829) tensor(4.5546, grad_fn=<MseLossBackward0>)
-== Status ==
-Current time: 2023-03-14 09:37:01 (running for 00:07:00.16)
-Memory usage on this node: 11.6/16.0 GiB
-Using FIFO scheduling algorithm.
-Resources requested: 1.0/8 CPUs, 0/0 GPUs, 0.0/6.78 GiB heap, 0.0/2.0 GiB objects
-Current best trial: cb94e_00000 with mse=4.554620742797852 and parameters={'lr': 0.0022279173681847534, 'wd': 0.0002175001235384768}
-Result logdir: /Users/michael/Documents/cambridge/ukbb-graphs/tmp-tuner/tuner_experiment
-Number of trials: 1/1 (1 RUNNING)
-+-------------------+----------+-----------------+------------+-----------+--------+------------------+
-| Trial name        | status   | loc             |         lr |        wd |   iter |   total time (s) |
-|-------------------+----------+-----------------+------------+-----------+--------+------------------|
-| train_cb94e_00000 | RUNNING  | 127.0.0.1:13829 | 0.00222792 | 0.0002175 |    100 |          402.895 |
-+-------------------+----------+-----------------+------------+-----------+--------+------------------+
-Result for train_cb94e_00000:
-  date: 2023-03-14_09-37-00
-  done: false
-  experiment_id: 389e5db4badb41e1bee31e4a2a530067
-  experiment_tag: 0_lr=0.0022,wd=0.0002
-  hostname: dhcp-10-249-24-137.eduroam.wireless.private.cam.ac.uk
-  iterations_since_restore: 100
-  mse: tensor(4.5546, requires_grad=True)
-  node_ip: 127.0.0.1
-  pid: 13829
-  time_since_restore: 402.89483094215393
-  time_this_iter_s: 3.906912088394165
-  time_total_s: 402.89483094215393
-  timestamp: 1678786620
-  timesteps_since_restore: 0
-  training_iteration: 100
-  trial_id: cb94e_00000
-  warmup_time: 0.0022509098052978516
-...
+    print(study.best_params)
+    print(study.best_value)
+
+"""
+[I 2023-03-14 09:51:20,858] A new study created in memory with name: no-name-29e0c43b-95e1-4022-bc52-28f7d1bd0282
+[I 2023-03-14 09:52:57,078] Trial 0 finished with value: 3.837623357772827 and parameters: {'lr': 0.005242891105447445, 'wd': 0.000689226751138232}. Best is trial 0 with value: 3.837623357772827.
+[I 2023-03-14 09:54:33,204] Trial 1 finished with value: 4.6321797370910645 and parameters: {'lr': 0.0013485685583865428, 'wd': 0.00036968864808714045}. Best is trial 0 with value: 3.837623357772827.
+[I 2023-03-14 09:56:11,988] Trial 2 finished with value: 3.6440277099609375 and parameters: {'lr': 0.007634639307970604, 'wd': 0.00041714770750167057}. Best is trial 2 with value: 3.6440277099609375.
+[I 2023-03-14 09:57:48,970] Trial 3 finished with value: 3.8052637577056885 and parameters: {'lr': 0.0062839324680143685, 'wd': 0.000809992804792344}. Best is trial 2 with value: 3.6440277099609375.
+[I 2023-03-14 09:59:27,484] Trial 4 finished with value: 3.6642394065856934 and parameters: {'lr': 0.009237045903937983, 'wd': 0.000541227441417108}. Best is trial 2 with value: 3.6440277099609375.
+[I 2023-03-14 10:01:03,966] Trial 5 finished with value: 3.7190518379211426 and parameters: {'lr': 0.009693348834631452, 'wd': 0.0002264407895906013}. Best is trial 2 with value: 3.6440277099609375.
+[I 2023-03-14 10:02:40,218] Trial 6 finished with value: 3.659353494644165 and parameters: {'lr': 0.008510449977221519, 'wd': 0.00027274458065503214}. Best is trial 2 with value: 3.6440277099609375.
+[I 2023-03-14 10:04:16,771] Trial 7 finished with value: 3.631498098373413 and parameters: {'lr': 0.008819657239070081, 'wd': 0.0009277374148896613}. Best is trial 7 with value: 3.631498098373413.
+[I 2023-03-14 10:05:52,138] Trial 8 finished with value: 3.6688859462738037 and parameters: {'lr': 0.006091664253368849, 'wd': 0.0005384461536853345}. Best is trial 7 with value: 3.631498098373413.
+[I 2023-03-14 10:09:11,127] Trial 9 finished with value: 4.261521339416504 and parameters: {'lr': 0.0018141755070389311, 'wd': 0.0005129473767607587}. Best is trial 7 with value: 3.631498098373413.
+{'lr': 0.008819657239070081, 'wd': 0.0009277374148896613}
+3.631498098373413
 """
