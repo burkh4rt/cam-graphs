@@ -11,7 +11,8 @@ import pandas as pd
 import numpy as np
 
 import torch as t
-from torch_geometric.data import Data
+import torch_geometric.loader as t_loader
+import torch_geometric.data as t_data
 
 rng = np.random.default_rng(0)
 target = "fluid_intelligence_score_f20016_2_0"
@@ -182,7 +183,7 @@ aff1 = pd.concat(
     ]
 ]
 
-f_data = lambda f: Data(
+f_data = lambda f: t_data.Data(
     x=t.tensor(
         np.column_stack([s1.loc[f, chis_rois].values]),
         dtype=t.float,
@@ -216,6 +217,26 @@ mean_train = np.array(
 std_train = np.array(
     y1.loc[fids[train_ids], target_plus_graph_features[0]]
 ).std()
+
+batch_val = next(
+    iter(
+        t_loader.DataLoader(
+            data_val,
+            batch_size=len(val_ids),
+            shuffle=False,
+        )
+    )
+)
+
+batch_test = next(
+    iter(
+        t_loader.DataLoader(
+            data_test,
+            batch_size=len(test_ids),
+            shuffle=False,
+        )
+    )
+)
 
 if __name__ == "__main__":
     print(f"total available: {len(fids)}")

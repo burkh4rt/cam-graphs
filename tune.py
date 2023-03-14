@@ -8,7 +8,9 @@ import datetime
 import os
 import warnings
 
+import matplotlib.pyplot as plt
 import optuna as opt
+import optuna.visualization.matplotlib as opt_mpl
 import torch as t
 import torch_geometric.loader as t_loader
 
@@ -20,53 +22,32 @@ warnings.simplefilter("ignore", category=opt.exceptions.ExperimentalWarning)
 t.manual_seed(0)
 criterion = t.nn.MSELoss()
 
-batch_val = next(
-    iter(
-        t_loader.DataLoader(
-            dataset.data_val,
-            batch_size=len(dataset.val_ids),
-            shuffle=False,
-        )
-    )
-)
-
 
 def loss_val(mdl):
     mdl.eval()
     return criterion(
         mdl(
-            batch_val.x,
-            batch_val.edge_index,
-            batch_val.edge_attr,
-            batch_val.batch,
-            batch_val.y[:, 1:],
+            dataset.batch_val.x,
+            dataset.batch_val.edge_index,
+            dataset.batch_val.edge_attr,
+            dataset.batch_val.batch,
+            dataset.batch_val.y[:, 1:],
         ),
-        batch_val.y[:, 0].reshape(-1, 1),
+        dataset.batch_val.y[:, 0].reshape(-1, 1),
     )
-
-
-batch_test = next(
-    iter(
-        t_loader.DataLoader(
-            dataset.data_test,
-            batch_size=len(dataset.test_ids),
-            shuffle=False,
-        )
-    )
-)
 
 
 def loss_test(mdl):
     mdl.eval()
     return criterion(
         mdl(
-            batch_test.x,
-            batch_test.edge_index,
-            batch_test.edge_attr,
-            batch_test.batch,
-            batch_test.y[:, 1:],
+            dataset.batch_test.x,
+            dataset.batch_test.edge_index,
+            dataset.batch_test.edge_attr,
+            dataset.batch_test.batch,
+            dataset.batch_test.y[:, 1:],
         ),
-        batch_test.y[:, 0].reshape(-1, 1),
+        dataset.batch_test.y[:, 0].reshape(-1, 1),
     )
 
 
@@ -171,17 +152,30 @@ if __name__ == "__main__":
             )
         )
     )
+    mdl.eval()
 
     print("test mse: {:.3f}".format(loss_test(mdl).detach().numpy()))
 
+    opt_mpl.plot_param_importances(
+        study, evaluator=opt.importance.FanovaImportanceEvaluator(seed=42)
+    )
+    plt.show()
+
+    imps = opt.importance.get_param_importances(
+        study, evaluator=opt.importance.FanovaImportanceEvaluator(seed=42)
+    )
+    feats_by_imps = sorted(imps.keys(), key=lambda k: imps[k], reverse=True)
+    opt_mpl.plot_contour(study, params=feats_by_imps[:2])
+    plt.show()
+
 """
-[I 2023-03-14 12:38:46,279] A new study created in memory with name: ukbb-graphs-tuning-20230314T1238Z
-[I 2023-03-14 12:44:43,641] Trial 0 finished with value: 3.675849199295044 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.0008795585311974417, 'n_epochs': 20, 'batch_size': 683}. Best is trial 0 with value: 3.675849199295044.
-[I 2023-03-14 12:49:28,749] Trial 1 finished with value: 3.507453441619873 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}. Best is trial 1 with value: 3.507453441619873.
-[I 2023-03-14 12:52:31,569] Trial 2 finished with value: 3.6632823944091797 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.0005628109945722505, 'n_epochs': 15, 'batch_size': 273}. Best is trial 1 with value: 3.507453441619873.
-[I 2023-03-14 12:56:30,890] Trial 3 finished with value: 3.6733880043029785 and parameters: {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.00018790490260574548, 'n_epochs': 20, 'batch_size': 471}. Best is trial 1 with value: 3.507453441619873.
-[I 2023-03-14 12:59:54,911] Trial 4 finished with value: 3.589390277862549 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}. Best is trial 1 with value: 3.507453441619873.
+[I 2023-03-14 13:18:31,473] A new study created in memory with name: ukbb-graphs-tuning-20230314T1318Z
+[I 2023-03-14 13:24:19,315] Trial 0 finished with value: 3.7425878047943115 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.0008795585311974417, 'n_epochs': 20, 'batch_size': 683}. Best is trial 0 with value: 3.7425878047943115.
+[I 2023-03-14 13:29:07,102] Trial 1 finished with value: 3.537107467651367 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}. Best is trial 1 with value: 3.537107467651367.
+[I 2023-03-14 13:32:09,970] Trial 2 finished with value: 3.6082773208618164 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.0005628109945722505, 'n_epochs': 15, 'batch_size': 273}. Best is trial 1 with value: 3.537107467651367.
+[I 2023-03-14 13:32:33,510] Trial 3 pruned.
+[I 2023-03-14 13:35:56,705] Trial 4 finished with value: 3.5927116870880127 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}. Best is trial 1 with value: 3.537107467651367.
 {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}
-val mse:  3.507
-test mse: 3.448
+val mse:  3.537
+test mse: 3.465
 """
