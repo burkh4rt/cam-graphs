@@ -2,6 +2,7 @@
 data/*
 flashlight/*
 tmp/*
+tmp-tuner/*
 
 # don't store trained models in the repo
 *.ckpt

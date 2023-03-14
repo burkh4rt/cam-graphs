@@ -135,10 +135,18 @@ fids = (
     .index.intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
 )
 
-train_ids = rng.choice(np.arange(len(fids)), size=15000, replace=False)
-test_ids = np.setdiff1d(np.arange(len(fids)), train_ids)
-assert len(np.intersect1d(train_ids, test_ids)) == 0
-assert len(np.union1d(train_ids, test_ids)) == len(fids)
+train_ids = rng.choice(np.arange(len(fids)), size=10000, replace=False)
+val_ids = rng.choice(
+    np.setdiff1d(np.arange(len(fids)), train_ids), size=5000, replace=False
+)
+test_ids = np.setdiff1d(np.arange(len(fids)), np.union1d(train_ids, val_ids))
+assert (
+    len(np.intersect1d(train_ids, val_ids))
+    == len(np.intersect1d(train_ids, test_ids))
+    == len(np.intersect1d(val_ids, test_ids))
+    == 0
+)
+assert len(np.union1d(train_ids, np.union1d(val_ids, test_ids))) == len(fids)
 
 aff1 = aff1.loc[fids]
 s1 = s1.loc[fids]
@@ -199,6 +207,7 @@ num_graph_features = len(target_plus_graph_features[1:])
 
 data_list = [f_data(f) for f in fids]
 data_train = [data_list[i] for i in train_ids]
+data_val = [data_list[i] for i in val_ids]
 data_test = [data_list[i] for i in test_ids]
 
 mean_train = np.array(
@@ -211,13 +220,15 @@ std_train = np.array(
 if __name__ == "__main__":
     print(f"total available: {len(fids)}")
     print(f"training set size: {len(train_ids)}")
+    print(f"validation set size: {len(val_ids)}")
     print(f"test set size: {len(test_ids)}")
     print(f"examplar graph:\n {f_data(fids[0])}")
 
 
 """
 total available: 19988
-training set size: 15000
+training set size: 10000
+validation set size: 5000
 test set size: 4988
 examplar graph:
  Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 9])
