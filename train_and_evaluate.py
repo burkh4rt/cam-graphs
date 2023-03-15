@@ -10,7 +10,8 @@ import os
 import numpy as np
 
 import torch as t
-from torch_geometric.loader import DataLoader
+import torch_geometric.loader as t_loader
+import torch_geometric.explain as t_explain
 import tqdm
 
 import dataset
@@ -23,7 +24,7 @@ def evaluate(
     mdl: model.GCN, return_preds=False
 ) -> float | tuple[float, dict[str, np.array]]:
     mdl.eval()
-    loader_test = DataLoader(
+    loader_test = t_loader.DataLoader(
         dataset.data_test, batch_size=len(dataset.test_ids)
     )
     batch_test = next(iter(loader_test))
@@ -51,7 +52,7 @@ def train(mdl: model.GCN) -> model.GCN:
     criterion = t.nn.MSELoss()
 
     for _ in tqdm.tqdm(range(10)):
-        loader_train = DataLoader(
+        loader_train = t_loader.DataLoader(
             dataset.data_train, 1000  # batch_size=len(dataset.train_ids)
         )
         for data in iter(loader_train):
@@ -70,19 +71,6 @@ def train(mdl: model.GCN) -> model.GCN:
 
 
 if __name__ == "__main__":
-    import time
-
-    # print contents of file to screen to remember what settings used when
-    # running multiple versions simultaneously
-    # with open(__file__) as f:
-    #     print(f.read())
-    #     print("%" * 79)
-    # with open(model.__file__) as f:
-    #     print(f.read())
-    #     print("%" * 79)
-
-    t0 = time.time()
-
     mdl = model.GCN()
     mdl = train(mdl)
     t.save(
@@ -96,9 +84,6 @@ if __name__ == "__main__":
             + ".ckpt",
         ),
     )
-    # mdl.load_state_dict(
-    #     t.load(os.path.join("tmp", "mdl-age-20230313T1421Z.ckpt"))
-    # )
 
     n_mse, pred_true_dict = evaluate(mdl, return_preds=True)
     print(f"norm. mse: {n_mse:.2f}")
@@ -116,7 +101,45 @@ if __name__ == "__main__":
         )
     )
 
-    print(f"executed in {time.time()-t0:.2f} seconds")
+    explainer = t_explain.Explainer(
+        model=mdl,
+        algorithm=t_explain.GNNExplainer(epochs=20),
+        explainer_config=t_explain.ExplainerConfig(
+            explanation_type="model", node_mask_type="attributes", edge_mask_type='object',
+        ),
+        model_config=dict(
+            mode="regression",
+            task_level="graph",
+            return_type="raw",
+        ),
+        threshold_config=dict(threshold_type="topk", value=10),
+    )
+
+    explanation = explainer(
+        dataset.batch_test.x,
+        dataset.batch_test.edge_index,
+        edge_attr=dataset.batch_test.edge_attr,
+        batch=dataset.batch_test.batch,
+        graph_feats=dataset.batch_test.y[:, 1:],
+    )
+
+    # print(f"Generated explanations in {explanation.available_explanations}")
+    # explanation.visualize_feature_importance(
+    #     os.path.join(
+    #         "figures",
+    #         "-".join(
+    #             [
+    #                 "feature-importances",
+    #                 "mdl-fluid_intell-"
+    #                 + datetime.datetime.now(datetime.timezone.utc).strftime(
+    #                     "%Y%m%dT%H%MZ"
+    #                 ) + ".pdf",
+    #             ]
+    #         ),
+    #     ),
+    #     top_k=10,
+    # )
+
 
 """ output:
 norm. mse: 0.86
