@@ -69,13 +69,7 @@ if __name__ == "__main__":
     )
     print(self)
 
-    batch = next(
-        iter(
-            DataLoader(
-                dataset.data_train, 1000  # batch_size=len(dataset.train_ids)
-            )
-        )
-    )
+    batch = next(iter(DataLoader(dataset.data_train, batch_size=8)))
 
     x, edge_index, edge_attr, batch, graph_feats = (
         batch.x,
@@ -93,14 +87,14 @@ if __name__ == "__main__":
 
 """ output:
 GCN(
-  (conv1): GATConv(1, 4, heads=4)
+  (conv1): GATConv(2, 4, heads=4)
   (agg): MultiAggregation([
     MeanAggregation(),
     StdAggregation(),
     SoftmaxAggregation(learn=True),
   ], mode=cat)
   (bnorm1): BatchNorm1d(48, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-  (lin1): Linear(in_features=118, out_features=4, bias=True)
+  (lin1): Linear(in_features=276, out_features=4, bias=True)
   (bnorm2): BatchNorm1d(4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (lin2): Linear(in_features=4, out_features=1, bias=True)
 )

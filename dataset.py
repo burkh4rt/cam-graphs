@@ -15,208 +15,118 @@ import torch_geometric.loader as t_loader
 import torch_geometric.data as t_data
 
 rng = np.random.default_rng(0)
-target = "fluid_intelligence_score_f20016_2_0"
 
-roi_dict = {
-    # "amygdala": ["amygdala"],
-    # "hippocampus": ["hippocampus"],
-    "perirhinal": ["PeEc"],
-    "ectorhinal": ["EC"],
-    "parahippocampal": ["PHA1", "PHA2", "PHA3"],
-    "postcentral_gyrus": ["3a", "3b"],
-    "superior_parietal": [
-        "7PC",
-        "7AL",
-        "7Am",
-        "7PL",
-        "7Pm",
-        "VIP",
-        "MIP",
-        "LIPv",
-        "LIPd",
-        "AIP",
-    ],
-    "inferior_parietal": [
-        "PFop",
-        "PFt",
-        "PF",
-        "PGs",
-        "PGi",
-        "PFm",
-        "PGp",
-        "TPOJ1",
-        "TPOJ2",
-        "TPOJ3",
-        "IP0",
-        "IP1",
-        "IP2",
-        "IPS1",
-    ],
-}
-rois = np.array(functools.reduce(lambda x, y: x + y, roi_dict.values()))
-chis = ["L", "R"]
-chis_rois = [f"{c}_{r}" for c in chis for r in rois]
-ukb_column_lookup = (
-    pd.read_csv(os.path.join("data", "ukb_fields.csv"))[
-        ["field.html", "col.name"]
-    ]
-    .set_index("field.html")
-    .to_dict()["col.name"]
+col_target = "av1451_age"
+
+df_bacs = (
+    pd.read_csv(os.path.join("data", "bacs_structural_data.csv"))
+    .assign(
+        id_dt=lambda df: df.scan_category_subject_id
+        + "_"
+        + df.av1451_av1451_date.str.split(" ").str[0],
+        apoe4pos=lambda df: (
+            (df.scan_category_apoe1 == "E4") | (df.scan_category_apoe2 == "E4")
+        ).astype(int),
+        is_female=lambda df: df.scan_category_sex.isin(["Female"]).astype(int),
+    )
+    .drop(
+        columns=[
+            "scan_category_apoe1",
+            "scan_category_apoe2",
+            "scan_category_sex",
+        ]
+    )
+    .set_index("id_dt")
 )
-target_plus_graph_features = [
-    target,
-    "age",
-    "is_fem",
-    "vol_hyper_25781_2_0",
-    "vol_grey_matter_25006_2_0",
-    "vol_white_matter_25008_2_0",
-    "body_mass_index_bmi_f21001_2_0",
-    "mean_time_to_correctly_identify_matches_f20023_2_0",
-    "maximum_digits_remembered_correctly_f4282_2_0",
+
+rois = [
+    "_".join(x.split("_")[1:])
+    for x in df_bacs.filter(regex="av1451_[0000-9999]").columns
 ]
 
-senders, receivers = map(
-    np.ravel, np.mgrid[0 : len(chis_rois), 0 : len(chis_rois)]
+# the mri and av1451 columns are just f"mri_{roi}" and f"av1451_{roi}"
+assert set(df_bacs.filter(regex="mri_[0000-9999]").columns) == set(
+    f"mri_{r}" for r in rois
+)
+assert set(df_bacs.filter(regex="av1451_[0000-9999]").columns) == set(
+    f"av1451_{r}" for r in rois
 )
 
-aff1 = (
-    pd.read_csv(
-        os.path.join("data", "affinity_matrices_dementia_only-baseline.csv")
-    )
-    .set_index("FID")
-    .filter(regex="^(?!.*(Hippocampus|Amygdala)).*")
-    .rename(
-        columns=lambda c: "_".join([d for d in c.split("_") if d != "ROI"])
-    )
+cols_feats = [f"{mo}_{r}" for r in rois for mo in ["mri", "av1451"]] + [
+    "apoe4pos",
+    "is_female",
+]
+
+ids = (
+    df_bacs[cols_feats + [col_target]]
+    .loc[lambda df: ~df.isna().any(axis=1)]
+    .index.to_list()
 )
 
-s1 = (
-    pd.read_csv(
-        os.path.join("data", "biobank-structural_plus-baseline.csv"),
-        low_memory=False,
-    )
-    .set_index("FID")
-    .rename(columns=ukb_column_lookup)
-    .assign(
-        age=lambda df: (
-            (
-                pd.to_datetime(
-                    df["date_of_attending_assessment_centre_f53_2_0"]
-                )
-                - pd.to_datetime(df["year_of_birth_f34_0_0"], format="%Y")
-            )
-            / pd.Timedelta("365 days")
-        ).round(0),
-        is_fem=lambda df: (abs(df["genetic_sex_f22001_0_0"]) < 0.5).astype(
-            int
-        ),
-    )
-    .rename(
-        columns={
-            "total_volume_of_white_matter_hyperintensities_"
-            "from_t1_and_t2_flair_images_f25781_2_0": "vol_hyper_25781_2_0",
-            "volume_of_grey_matter_f25006_2_0": "vol_grey_matter_25006_2_0",
-            "volume_of_white_matter_f25008_2_0": "vol_white_matter_25008_2_0",
-        }
-    )
-    .filter(
-        regex="(.*_("
-        + "|".join(rois)
-        + f").*_vol)|"
-        + "|".join(target_plus_graph_features)
-    )
-    .rename(
-        columns=lambda c: "_".join(c.split("_")[1:3]) if "_vol" in c else c
-    )
-)[target_plus_graph_features + chis_rois]
-
-fids = (
-    (~aff1.isna())
-    .loc[lambda df: df.all(axis=1)]
-    .index.intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
-)
-
-train_ids = rng.choice(np.arange(len(fids)), size=10000, replace=False)
+n_ids = len(ids)
+train_ids = rng.choice(ids, size=int(0.65 * n_ids), replace=False)
 val_ids = rng.choice(
-    np.setdiff1d(np.arange(len(fids)), train_ids), size=5000, replace=False
+    np.setdiff1d(ids, train_ids), size=int(0.15 * n_ids), replace=False
 )
-test_ids = np.setdiff1d(np.arange(len(fids)), np.union1d(train_ids, val_ids))
+test_ids = np.setdiff1d(ids, np.union1d(train_ids, val_ids))
+
+# ids are partitioned into train, val, and test
 assert (
     len(np.intersect1d(train_ids, val_ids))
     == len(np.intersect1d(train_ids, test_ids))
     == len(np.intersect1d(val_ids, test_ids))
     == 0
 )
-assert len(np.union1d(train_ids, np.union1d(val_ids, test_ids))) == len(fids)
+assert len(np.union1d(train_ids, np.union1d(val_ids, test_ids))) == len(ids)
 
-aff1 = aff1.loc[fids]
-s1 = s1.loc[fids]
-y1 = s1[target_plus_graph_features]
-s1 = s1.drop(columns=y1.columns)
-s1 -= s1.loc[fids[train_ids]].mean(axis=0)
-s1 /= s1.loc[fids[train_ids]].std(axis=0)
-y1.loc[:, target_plus_graph_features[1:]] -= y1.loc[
-    fids[train_ids], target_plus_graph_features[1:]
-].mean(axis=0)
-y1.loc[:, target_plus_graph_features[1:]] /= y1.loc[
-    fids[train_ids], target_plus_graph_features[1:]
-].std(axis=0)
+# normalise features according to training set
+df_bacs.loc[:, cols_feats] -= df_bacs.loc[train_ids, cols_feats].mean(axis=0)
+df_bacs.loc[:, cols_feats] /= df_bacs.loc[train_ids, cols_feats].std(axis=0)
 
-# reconstitute affinity matrices from lower triangular portion
-aff1 = pd.concat(
-    [
-        aff1,
-        aff1.rename(columns=lambda c: "_by_".join(c.split("_by_")[::-1])),
-        pd.DataFrame(
-            index=aff1.index,
-            data={
-                f"{r}_by_{r}": np.ones(shape=(len(aff1.index),))
-                for r in chis_rois
-            },
-        ),
-    ],
-    axis=1,
-)[
-    [
-        chis_rois[senders[i]] + "_by_" + chis_rois[receivers[i]]
-        for i in range(len(senders))
-    ]
-]
+mean_train = df_bacs.loc[train_ids, col_target].mean()
+std_train = df_bacs.loc[train_ids, col_target].std()
+
+# grab correlation matrix between rois
+c_mat_bacs = (
+    pd.read_csv(os.path.join("data", "bacs_correlations.csv"), index_col=0)
+    .rename(index=lambda x: "_".join(x.split("_")[1:-1]))
+    .rename(columns=lambda x: "_".join(x.split("_")[1:-1]))
+)
+assert set(c_mat_bacs.columns) == set(c_mat_bacs.index) == set(rois)
+
+senders, receivers = map(np.ravel, np.mgrid[0 : len(rois), 0 : len(rois)])
 
 f_data = lambda f: t_data.Data(
     x=t.tensor(
-        np.column_stack([s1.loc[f, chis_rois].values]),
+        np.column_stack(
+            [
+                df_bacs.loc[f, [f"{mo}_{r}" for r in rois]].values
+                for mo in ["mri", "av1451"]
+            ]
+        ).astype(float),
         dtype=t.float,
     ),  # node feature matrix of n_nodes x d_node_feat
     edge_index=t.tensor(
         np.row_stack([senders, receivers]), dtype=t.long
     ),  # 2 x n_edges in COO
     edge_attr=t.tensor(
-        aff1.loc[f].values.reshape([-1, 1]), dtype=t.float
+        c_mat_bacs.values[senders, receivers], dtype=t.float
     ),  # n_edges x d_edge_feat
     y=t.tensor(
-        np.array(y1.loc[f, target_plus_graph_features]).reshape(
-            -1, len(target_plus_graph_features)
-        ),
+        df_bacs.loc[f, [col_target, "apoe4pos", "is_female"]]
+        .values.astype(float)
+        .reshape(1, -1),
         dtype=t.float,
-    ),
+    ),  # 1 x n_graph_feats
 )
 
-num_node_features = f_data(fids[0]).num_node_features
-num_nodes = f_data(fids[0]).num_nodes
-num_graph_features = len(target_plus_graph_features[1:])
+num_node_features = f_data(ids[0]).num_node_features
+num_nodes = f_data(ids[0]).num_nodes
+num_graph_features = len(f_data(ids[0]).y.ravel()) - 1
 
-data_list = [f_data(f) for f in fids]
-data_train = [data_list[i] for i in train_ids]
-data_val = [data_list[i] for i in val_ids]
-data_test = [data_list[i] for i in test_ids]
-
-mean_train = np.array(
-    y1.loc[fids[train_ids], target_plus_graph_features[0]]
-).mean()
-std_train = np.array(
-    y1.loc[fids[train_ids], target_plus_graph_features[0]]
-).std()
+data_train = [f_data(i) for i in train_ids]
+data_val = [f_data(i) for i in val_ids]
+data_test = [f_data(i) for i in test_ids]
 
 batch_val = next(
     iter(
@@ -238,19 +148,19 @@ batch_test = next(
     )
 )
 
+
 if __name__ == "__main__":
-    print(f"total available: {len(fids)}")
+    print(f"total available: {len(ids)}")
     print(f"training set size: {len(train_ids)}")
     print(f"validation set size: {len(val_ids)}")
     print(f"test set size: {len(test_ids)}")
-    print(f"examplar graph:\n {f_data(fids[0])}")
-
+    print(f"examplar graph:\n {f_data(ids[0])}")
 
 """
-total available: 19988
-training set size: 10000
-validation set size: 5000
-test set size: 4988
+total available: 222
+training set size: 144
+validation set size: 33
+test set size: 45
 examplar graph:
- Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 9])
+ Data(x=[113, 2], edge_index=[2, 12769], edge_attr=[12769], y=[1, 3])
 """
