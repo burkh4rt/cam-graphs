@@ -4,6 +4,7 @@
 Defines a simple graph-based model with convolution and readout layers
 """
 
+import numpy as np
 import torch as t
 from torch.nn import Linear, AlphaDropout, BatchNorm1d
 from torch_geometric.nn import GATConv
@@ -22,7 +23,6 @@ class GCN(t.nn.Module):
         dim_penultimate=5,
     ):
         super().__init__()
-        self.alpha_dropout = alpha_dropout
         self.gat_heads = gat_heads
         self.gat_out_channels = gat_out_channels
         self.dim_penultimate = dim_penultimate
@@ -38,6 +38,8 @@ class GCN(t.nn.Module):
             ["mean", "std", aggr.SoftmaxAggregation(learn=True)]
         )
         self.bnorm1 = BatchNorm1d(3 * self.gat_out_channels * self.gat_heads)
+        self.alpha_dropout = alpha_dropout
+        self.a_dropout_layer = AlphaDropout(p=self.alpha_dropout)
         self.lin1 = Linear(
             3 * self.gat_out_channels * self.gat_heads
             + dataset.num_node_features * dataset.num_nodes
@@ -54,11 +56,35 @@ class GCN(t.nn.Module):
         x = to_dense_batch(x, batch, max_num_nodes=dataset.num_nodes)[0]
         x = x.view(-1, x.size(1) * x.size(2))
         x = t.cat((x1, x, graph_feats), -1)
-        x = AlphaDropout(p=self.alpha_dropout)(x)
+        x = self.a_dropout_layer(x)
         x = t.tanh(self.lin1(x))
         x = self.bnorm2(x)
         x = self.lin2(x)
         return dataset.std_train * x + dataset.mean_train
+
+    def as_function_of_x_y(self, x_y1):
+        self.eval()
+        n = x_y1.shape[0]
+        outp = np.zeros(n).reshape(n, 1)
+        for i in range(n):
+            x = x_y1[i, : -dataset.num_graph_features].reshape(
+                dataset.batch_0.x.detach().numpy().shape
+            )
+            y = x_y1[i, -dataset.num_graph_features :].reshape(
+                dataset.batch_0.y[:, 1:].detach().numpy().shape
+            )
+            outp[i] = (
+                self.forward(
+                    t.tensor(x, dtype=t.float),
+                    dataset.batch_0.edge_index,
+                    dataset.batch_0.edge_attr,
+                    dataset.batch_0.batch,
+                    t.tensor(y, dtype=t.float),
+                )
+                .detach()
+                .numpy()
+            )
+        return outp
 
 
 if __name__ == "__main__":

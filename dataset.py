@@ -148,6 +148,25 @@ batch_test = next(
     )
 )
 
+batch_0 = next(
+    iter(
+        t_loader.DataLoader(
+            data_test,
+            batch_size=1,
+            shuffle=False,
+        )
+    )
+)
+
+cols_xy1_ravelled = np.concatenate(
+    [
+        np.column_stack(
+            [[f"{mo}_{r}" for r in rois] for mo in ["mri", "av1451"]]
+        ).reshape(-1),
+        np.array(["apoe4pos", "is_female"]),
+    ]
+)
+
 
 if __name__ == "__main__":
     print(f"total available: {len(ids)}")
