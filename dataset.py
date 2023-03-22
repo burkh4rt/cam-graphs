@@ -4,7 +4,6 @@
 Wrangles biobank data into a form appropriate for torch geometric
 """
 
-import functools
 import os
 
 import pandas as pd

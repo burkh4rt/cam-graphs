@@ -21,12 +21,23 @@ rsync -avhtXE \
     --delete \
     --force \
     --groupmap="*:abg" \
-    ~/Documents/cambridge/ukbb-graphs \
-    abg-cluster1.psychol.private.cam.ac.uk:/zfs/mcb93/ukbb-graphs
+    ~/Documents/cambridge/gnns-graphs \
+    abg-cluster1.psychol.private.cam.ac.uk:/zfs/mcb93/gnns-graphs
 ```
 
+Create venv:
+```
+python3 -m venv flashlight
+source flashlight/bin/activate
+pip3 install torch torchvision torchaudio
+pip3 install --verbose git+https://github.com/pyg-team/pyg-lib.git
+pip3 install torch_geometric torch_scatter torch_sparse torch_cluster torch_spline_conv
+pip3 install shap optuna matplotlib
+```
+
+Create `reqirements.txt` file:
 ```
 source flashlight/bin/activate
-pip3 list --format=freeze > requirements.txt
+python3 -m pip list --format=freeze > requirements.txt
 ```
 -->
