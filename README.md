@@ -24,4 +24,9 @@ rsync -avhtXE \
     ~/Documents/cambridge/ukbb-graphs \
     abg-cluster1.psychol.private.cam.ac.uk:/zfs/mcb93/ukbb-graphs
 ```
+
+```
+source flashlight/bin/activate
+pip3 list --format=freeze > requirements.txt
+```
 -->

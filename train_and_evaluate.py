@@ -101,27 +101,29 @@ if __name__ == "__main__":
         )
     )
 
-    explainer = t_explain.Explainer(
-        model=mdl,
-        algorithm=t_explain.GNNExplainer(epochs=20),
-        explainer_config=t_explain.ExplainerConfig(
-            explanation_type="model", node_mask_type="attributes", edge_mask_type='object',
-        ),
-        model_config=dict(
-            mode="regression",
-            task_level="graph",
-            return_type="raw",
-        ),
-        threshold_config=dict(threshold_type="topk", value=10),
-    )
+    # explainer = t_explain.Explainer(
+    #     model=mdl,
+    #     algorithm=t_explain.GNNExplainer(epochs=20),
+    #     explainer_config=t_explain.ExplainerConfig(
+    #         explanation_type="model",
+    #         node_mask_type="attributes",
+    #         edge_mask_type="object",
+    #     ),
+    #     model_config=dict(
+    #         mode="regression",
+    #         task_level="graph",
+    #         return_type="raw",
+    #     ),
+    #     threshold_config=dict(threshold_type="topk", value=10),
+    # )
 
-    explanation = explainer(
-        dataset.batch_test.x,
-        dataset.batch_test.edge_index,
-        edge_attr=dataset.batch_test.edge_attr,
-        batch=dataset.batch_test.batch,
-        graph_feats=dataset.batch_test.y[:, 1:],
-    )
+    # explanation = explainer(
+    #     dataset.batch_test.x,
+    #     dataset.batch_test.edge_index,
+    #     edge_attr=dataset.batch_test.edge_attr,
+    #     batch=dataset.batch_test.batch,
+    #     graph_feats=dataset.batch_test.y[:, 1:],
+    # )
 
     # print(f"Generated explanations in {explanation.available_explanations}")
     # explanation.visualize_feature_importance(
@@ -143,7 +145,6 @@ if __name__ == "__main__":
 
 """ output:
 norm. mse: 0.86
-rmse null: 2.04
-rmse ours: 1.90
-executed in 216.13 seconds
+rmse null: 1.99
+rmse ours: 1.85
 """
