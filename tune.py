@@ -51,6 +51,14 @@ def loss_test(mdl):
     )
 
 
+def loss_null():
+    return criterion(
+        dataset.mean_train
+        * t.ones_like(dataset.batch_test.y[:, 0].reshape(-1, 1)),
+        dataset.batch_test.y[:, 0].reshape(-1, 1),
+    )
+
+
 def objective(trial):
     mdl = model.GCN(
         alpha_dropout=trial.suggest_float("alpha_dropout", 0.0, 1e-1),
@@ -155,6 +163,7 @@ if __name__ == "__main__":
     mdl.eval()
 
     print("test mse: {:.3f}".format(loss_test(mdl).detach().numpy()))
+    print("null mse: {:.3f}".format(loss_null().detach().numpy()))
 
     opt_mpl.plot_param_importances(
         study, evaluator=opt.importance.FanovaImportanceEvaluator(seed=42)
@@ -169,13 +178,14 @@ if __name__ == "__main__":
     plt.show()
 
 """
-[I 2023-03-14 14:06:20,959] A new study created in memory with name: ukbb-graphs-tuning-20230314T1406Z
-[I 2023-03-14 14:12:45,026] Trial 0 finished with value: 41.321250915527344 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.0008795585311974417, 'n_epochs': 20, 'batch_size': 683}. Best is trial 0 with value: 41.321250915527344.
-[I 2023-03-14 14:17:34,582] Trial 1 finished with value: 29.784421920776367 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}. Best is trial 1 with value: 29.784421920776367.
-[I 2023-03-14 14:17:59,168] Trial 2 pruned.
-[I 2023-03-14 14:18:24,189] Trial 3 pruned.
-[I 2023-03-14 14:22:07,137] Trial 4 finished with value: 31.449630737304688 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}. Best is trial 1 with value: 29.784421920776367.
-{'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}
-val mse:  29.784
-test mse: 30.096
+[I 2023-03-22 13:16:35,652] A new study created in memory with name: gnns-graphs-tuning-20230322T1316Z
+[I 2023-03-22 13:23:14,105] Trial 0 finished with value: 38.79991912841797 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.0008795585311974417, 'n_epochs': 20, 'batch_size': 683}. Best is trial 0 with value: 38.79991912841797.
+[I 2023-03-22 13:28:14,450] Trial 1 finished with value: 31.506887435913086 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}. Best is trial 1 with value: 31.506887435913086.
+[I 2023-03-22 13:31:19,788] Trial 2 finished with value: 31.826675415039062 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.0005628109945722505, 'n_epochs': 15, 'batch_size': 273}. Best is trial 1 with value: 31.506887435913086.
+[I 2023-03-22 13:32:07,044] Trial 3 pruned.
+[I 2023-03-22 13:35:34,363] Trial 4 finished with value: 29.845834732055664 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}. Best is trial 4 with value: 29.845834732055664.
+{'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}
+val mse:  29.846
+test mse: 29.696
+null mse: 54.910
 """
