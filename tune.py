@@ -155,13 +155,18 @@ if __name__ == "__main__":
     )
     mdl.eval()
 
-    ypred = mdl(
-        dataset.batch_test.x,
-        dataset.batch_test.edge_index,
-        dataset.batch_test.edge_attr,
-        dataset.batch_test.batch,
-        dataset.batch_test.y[:, 1:],
-    ).detach().numpy().ravel()
+    ypred = (
+        mdl(
+            dataset.batch_test.x,
+            dataset.batch_test.edge_index,
+            dataset.batch_test.edge_attr,
+            dataset.batch_test.batch,
+            dataset.batch_test.y[:, 1:],
+        )
+        .detach()
+        .numpy()
+        .ravel()
+    )
 
     ytrue = dataset.batch_test.y[:, 0].numpy().ravel()
 
@@ -190,15 +195,15 @@ if __name__ == "__main__":
     plt.show()
 
 """
-[I 2023-03-15 09:30:51,379] A new study created in memory with name: ukbb-graphs-tuning-20230315T0930Z
-[I 2023-03-15 09:37:10,479] Trial 0 finished with value: 0.5443597435951233 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.0008795585311974417, 'n_epochs': 20, 'batch_size': 683}. Best is trial 0 with value: 0.5443597435951233.
-[I 2023-03-15 09:41:52,236] Trial 1 finished with value: 0.40592294931411743 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}. Best is trial 1 with value: 0.40592294931411743.
-[I 2023-03-15 09:42:16,460] Trial 2 pruned.
-[I 2023-03-15 09:46:29,541] Trial 3 finished with value: 0.45701220631599426 and parameters: {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.00018790490260574548, 'n_epochs': 20, 'batch_size': 471}. Best is trial 1 with value: 0.40592294931411743.
-[I 2023-03-15 09:47:23,661] Trial 4 pruned.
+[I 2023-03-22 12:04:17,688] A new study created in memory with name: gnns-graphs-tuning-20230322T1204Z
+[I 2023-03-22 12:10:06,125] Trial 0 finished with value: 0.5347253084182739 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.0008795585311974417, 'n_epochs': 20, 'batch_size': 683}. Best is trial 0 with value: 0.5347253084182739.
+[I 2023-03-22 12:14:45,809] Trial 1 finished with value: 0.40176740288734436 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}. Best is trial 1 with value: 0.40176740288734436.
+[I 2023-03-22 12:16:47,078] Trial 2 pruned.
+[I 2023-03-22 12:20:40,705] Trial 3 finished with value: 0.42542725801467896 and parameters: {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.00018790490260574548, 'n_epochs': 20, 'batch_size': 471}. Best is trial 1 with value: 0.40176740288734436.
+[I 2023-03-22 12:24:09,103] Trial 4 finished with value: 0.4073270261287689 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}. Best is trial 1 with value: 0.40176740288734436.
 {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}
-val mse:  0.406
+val mse:  0.402
 auc: 0.89
-acc: 0.80
-f1:  0.81
+acc: 0.81
+f1:  0.82
 """

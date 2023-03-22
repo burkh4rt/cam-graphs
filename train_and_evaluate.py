@@ -36,9 +36,7 @@ def train(mdl: model.GCN) -> model.GCN:
     for _ in tqdm.tqdm(range(10)):
         print("{:.3f}".format(loss_val(mdl).detach().numpy()))
         mdl.train()
-        loader_train = t_loader.DataLoader(
-            dataset.data_train, 1000
-        )
+        loader_train = t_loader.DataLoader(dataset.data_train, 1000)
         for data in iter(loader_train):
             out = mdl(
                 data.x,
@@ -56,18 +54,24 @@ def train(mdl: model.GCN) -> model.GCN:
 
 if __name__ == "__main__":
     import time
+
     t0 = time.time()
 
     mdl = model.GCN()
     mdl = train(mdl)
     mdl.eval()
-    ypred = mdl(
-        dataset.batch_test.x,
-        dataset.batch_test.edge_index,
-        dataset.batch_test.edge_attr,
-        dataset.batch_test.batch,
-        dataset.batch_test.y[:, 1:],
-    ).detach().numpy().ravel()
+    ypred = (
+        mdl(
+            dataset.batch_test.x,
+            dataset.batch_test.edge_index,
+            dataset.batch_test.edge_attr,
+            dataset.batch_test.batch,
+            dataset.batch_test.y[:, 1:],
+        )
+        .detach()
+        .numpy()
+        .ravel()
+    )
 
     ytrue = dataset.batch_test.y[:, 0].numpy().ravel()
 
@@ -83,22 +87,61 @@ if __name__ == "__main__":
         )
     )
 
-    print(f"executed in {time.time()-t0:.2f} seconds")
+    # explainer = t_explain.Explainer(
+    #     model=mdl,
+    #     algorithm=t_explain.GNNExplainer(epochs=20),
+    #     explainer_config=t_explain.ExplainerConfig(
+    #         explanation_type="model",
+    #         node_mask_type="attributes",
+    #         edge_mask_type="object",
+    #     ),
+    #     model_config=dict(
+    #         mode="regression",
+    #         task_level="graph",
+    #         return_type="raw",
+    #     ),
+    #     threshold_config=dict(threshold_type="topk", value=10),
+    # )
+
+    # explanation = explainer(
+    #     dataset.batch_test.x,
+    #     dataset.batch_test.edge_index,
+    #     edge_attr=dataset.batch_test.edge_attr,
+    #     batch=dataset.batch_test.batch,
+    #     graph_feats=dataset.batch_test.y[:, 1:],
+    # )
+
+    # print(f"Generated explanations in {explanation.available_explanations}")
+    # explanation.visualize_feature_importance(
+    #     os.path.join(
+    #         "figures",
+    #         "-".join(
+    #             [
+    #                 "feature-importances",
+    #                 "mdl-fluid_intell-"
+    #                 + datetime.datetime.now(datetime.timezone.utc).strftime(
+    #                     "%Y%m%dT%H%MZ"
+    #                 ) + ".pdf",
+    #             ]
+    #         ),
+    #     ),
+    #     top_k=10,
+    # )
+
 
 """ output:
-  0%|          | 0/10 [00:00<?, ?it/s]0.698
- 10%|█         | 1/10 [00:15<02:23, 15.91s/it]0.514
- 20%|██        | 2/10 [00:30<02:02, 15.33s/it]0.484
- 30%|███       | 3/10 [00:45<01:45, 15.09s/it]0.471
- 40%|████      | 4/10 [01:01<01:31, 15.21s/it]0.463
- 50%|█████     | 5/10 [01:16<01:15, 15.16s/it]0.451
- 60%|██████    | 6/10 [01:31<01:00, 15.10s/it]0.447
- 70%|███████   | 7/10 [01:46<00:45, 15.16s/it]0.458
- 80%|████████  | 8/10 [02:01<00:30, 15.01s/it]0.451
- 90%|█████████ | 9/10 [02:15<00:14, 14.98s/it]0.456
-100%|██████████| 10/10 [02:31<00:00, 15.12s/it]
-auc: 0.86
-acc: 0.78
-f1:  0.79
-executed in 152.42 seconds
+  0%|          | 0/10 [00:00<?, ?it/s]0.695
+ 10%|█         | 1/10 [00:15<02:17, 15.25s/it]0.505
+ 20%|██        | 2/10 [00:30<02:01, 15.16s/it]0.457
+ 30%|███       | 3/10 [00:45<01:46, 15.16s/it]0.437
+ 40%|████      | 4/10 [01:00<01:30, 15.04s/it]0.427
+ 50%|█████     | 5/10 [01:15<01:15, 15.01s/it]0.422
+ 60%|██████    | 6/10 [01:30<00:59, 15.00s/it]0.424
+ 70%|███████   | 7/10 [01:45<00:45, 15.10s/it]0.419
+ 80%|████████  | 8/10 [02:01<00:30, 15.32s/it]0.416
+ 90%|█████████ | 9/10 [02:17<00:15, 15.45s/it]0.418
+100%|██████████| 10/10 [02:32<00:00, 15.27s/it]
+auc: 0.88
+acc: 0.79
+f1:  0.81
 """
