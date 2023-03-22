@@ -3,7 +3,7 @@
 """
 Wrangles biobank data into a form appropriate for torch geometric
 """
-
+import itertools
 import os
 
 import pandas as pd
@@ -15,6 +15,7 @@ import torch_geometric.data as t_data
 
 rng = np.random.default_rng(0)
 
+n_folds = 5
 col_target = "av1451_age"
 
 df_bacs = (
@@ -59,31 +60,8 @@ cols_feats = [f"{mo}_{r}" for r in rois for mo in ["mri", "av1451"]] + [
 ids = (
     df_bacs[cols_feats + [col_target]]
     .loc[lambda df: ~df.isna().any(axis=1)]
-    .index.to_list()
+    .index.to_numpy()
 )
-
-n_ids = len(ids)
-train_ids = rng.choice(ids, size=int(0.65 * n_ids), replace=False)
-val_ids = rng.choice(
-    np.setdiff1d(ids, train_ids), size=int(0.15 * n_ids), replace=False
-)
-test_ids = np.setdiff1d(ids, np.union1d(train_ids, val_ids))
-
-# ids are partitioned into train, val, and test
-assert (
-    len(np.intersect1d(train_ids, val_ids))
-    == len(np.intersect1d(train_ids, test_ids))
-    == len(np.intersect1d(val_ids, test_ids))
-    == 0
-)
-assert len(np.union1d(train_ids, np.union1d(val_ids, test_ids))) == len(ids)
-
-# normalise features according to training set
-df_bacs.loc[:, cols_feats] -= df_bacs.loc[train_ids, cols_feats].mean(axis=0)
-df_bacs.loc[:, cols_feats] /= df_bacs.loc[train_ids, cols_feats].std(axis=0)
-
-mean_train = df_bacs.loc[train_ids, col_target].mean()
-std_train = df_bacs.loc[train_ids, col_target].std()
 
 # grab correlation matrix between rois
 c_mat_bacs = (
@@ -95,7 +73,7 @@ assert set(c_mat_bacs.columns) == set(c_mat_bacs.index) == set(rois)
 
 senders, receivers = map(np.ravel, np.mgrid[0 : len(rois), 0 : len(rois)])
 
-f_data = lambda f: t_data.Data(
+f_data = lambda f, df_bacs: t_data.Data(
     x=t.tensor(
         np.column_stack(
             [
@@ -119,66 +97,115 @@ f_data = lambda f: t_data.Data(
     ),  # 1 x n_graph_feats
 )
 
-num_node_features = f_data(ids[0]).num_node_features
-num_nodes = f_data(ids[0]).num_nodes
-num_graph_features = len(f_data(ids[0]).y.ravel()) - 1
+n_ids = len(ids)
+folds = rng.choice(n_folds, size=n_ids)
 
-data_train = [f_data(i) for i in train_ids]
-data_val = [f_data(i) for i in val_ids]
-data_test = [f_data(i) for i in test_ids]
 
-batch_val = next(
-    iter(
-        t_loader.DataLoader(
-            data_val,
-            batch_size=len(val_ids),
-            shuffle=False,
+class dataset:
+    def __init__(self, fold: int):
+        assert 0 <= fold < n_folds
+        self.ids = ids
+        self.n_ids = n_ids
+        self.fold = fold
+        self.folds = folds
+        self.test_ids = self.ids[self.folds == self.fold]
+        self.val_ids = self.ids[self.folds == (self.fold + 1) % n_folds]
+        self.train_ids = np.setdiff1d(
+            self.ids, np.union1d(self.test_ids, self.val_ids)
         )
-    )
-)
 
-batch_test = next(
-    iter(
-        t_loader.DataLoader(
-            data_test,
-            batch_size=len(test_ids),
-            shuffle=False,
+        # the training, validation, & test sets partition the data
+        for p1, p2 in itertools.combinations(
+            [self.train_ids, self.val_ids, self.test_ids], 2
+        ):
+            assert len(np.intersect1d(p1, p2)) == 0
+        assert len(self.train_ids) + len(self.val_ids) + len(
+            self.test_ids
+        ) == len(self.ids)
+
+        self.df_bacs = df_bacs.copy(deep=True)
+        self.c_mat_bacs = c_mat_bacs
+
+        # normalise features according to training set
+        self.df_bacs.loc[:, cols_feats] -= df_bacs.loc[
+            self.train_ids, cols_feats
+        ].mean(axis=0)
+        self.df_bacs.loc[:, cols_feats] /= df_bacs.loc[
+            self.train_ids, cols_feats
+        ].std(axis=0)
+
+        self.mean_train = df_bacs.loc[self.train_ids, col_target].mean()
+        self.std_train = df_bacs.loc[self.train_ids, col_target].std()
+
+        self.f_data = lambda f: f_data(f, self.df_bacs)
+
+        self.num_node_features = self.f_data(ids[0]).num_node_features
+        self.num_nodes = self.f_data(ids[0]).num_nodes
+        self.num_graph_features = len(self.f_data(ids[0]).y.ravel()) - 1
+
+        self.data_train = [self.f_data(i) for i in self.train_ids]
+        self.data_val = [self.f_data(i) for i in self.val_ids]
+        self.data_test = [self.f_data(i) for i in self.test_ids]
+
+        self.batch_val = next(
+            iter(
+                t_loader.DataLoader(
+                    self.data_val,
+                    batch_size=len(self.val_ids),
+                    shuffle=False,
+                )
+            )
         )
-    )
-)
 
-batch_0 = next(
-    iter(
-        t_loader.DataLoader(
-            data_test,
-            batch_size=1,
-            shuffle=False,
+        self.batch_test = next(
+            iter(
+                t_loader.DataLoader(
+                    self.data_test,
+                    batch_size=len(self.test_ids),
+                    shuffle=False,
+                )
+            )
         )
-    )
-)
+        self.batch_0 = next(
+            iter(
+                t_loader.DataLoader(
+                    self.data_test,
+                    batch_size=1,
+                    shuffle=False,
+                )
+            )
+        )
 
-cols_xy1_ravelled = np.concatenate(
-    [
-        np.column_stack(
-            [[f"{mo}_{r}" for r in rois] for mo in ["mri", "av1451"]]
-        ).reshape(-1),
-        np.array(["apoe4pos", "is_female"]),
-    ]
-)
+        self.cols_xy1_ravelled = np.concatenate(
+            [
+                np.column_stack(
+                    [[f"{mo}_{r}" for r in rois] for mo in ["mri", "av1451"]]
+                ).reshape(-1),
+                np.array(["apoe4pos", "is_female"]),
+            ]
+        )
 
 
 if __name__ == "__main__":
-    print(f"total available: {len(ids)}")
-    print(f"training set size: {len(train_ids)}")
-    print(f"validation set size: {len(val_ids)}")
-    print(f"test set size: {len(test_ids)}")
-    print(f"examplar graph:\n {f_data(ids[0])}")
+    dset = dataset(0)
+    print(f"total available: {len(dset.ids)}")
+    print(f"training set size: {len(dset.train_ids)}")
+    print(f"validation set size: {len(dset.val_ids)}")
+    print(f"test set size: {len(dset.test_ids)}")
+    print(f"examplar graph:\n {dset.f_data(ids[0])}")
+
+    # check that we're cross-validating
+    for f1, f2 in itertools.combinations(range(n_folds), 2):
+        assert (
+            len(np.intersect1d(dataset(f1).test_ids, dataset(f2).test_ids))
+            == 0
+        )
 
 """
 total available: 222
 training set size: 144
-validation set size: 33
-test set size: 45
+validation set size: 36
+test set size: 42
 examplar graph:
  Data(x=[113, 2], edge_index=[2, 12769], edge_attr=[12769], y=[1, 3])
 """

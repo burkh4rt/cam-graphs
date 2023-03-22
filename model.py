@@ -13,6 +13,8 @@ from torch_geometric.nn import aggr
 
 import dataset
 
+dataset = dataset.dataset(0)
+
 
 class GCN(t.nn.Module):
     def __init__(
@@ -21,8 +23,12 @@ class GCN(t.nn.Module):
         gat_heads=3,
         gat_out_channels=3,
         dim_penultimate=5,
+        mean_train=dataset.mean_train,
+        std_train=dataset.std_train,
     ):
         super().__init__()
+        self.mean_train = mean_train
+        self.std_train = std_train
         self.gat_heads = gat_heads
         self.gat_out_channels = gat_out_channels
         self.dim_penultimate = dim_penultimate
@@ -60,7 +66,7 @@ class GCN(t.nn.Module):
         x = t.tanh(self.lin1(x))
         x = self.bnorm2(x)
         x = self.lin2(x)
-        return dataset.std_train * x + dataset.mean_train
+        return self.std_train * x + self.mean_train
 
     def as_function_of_x_y(self, x_y1):
         self.eval()
@@ -120,6 +126,7 @@ GCN(
     SoftmaxAggregation(learn=True),
   ], mode=cat)
   (bnorm1): BatchNorm1d(48, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (a_dropout_layer): AlphaDropout(p=0.1, inplace=False)
   (lin1): Linear(in_features=276, out_features=4, bias=True)
   (bnorm2): BatchNorm1d(4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (lin2): Linear(in_features=4, out_features=1, bias=True)
