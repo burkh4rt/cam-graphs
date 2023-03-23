@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optuna as opt
 import optuna.visualization.matplotlib as opt_mpl
+import pandas as pd
 import shap
 import torch as t
 import torch_geometric.loader as t_loader
@@ -87,6 +88,7 @@ def model_fold(i_fold):
                     dataset.data_train,
                     batch_size=2 ** trial.suggest_int("batch_log2", 2, 4),
                     shuffle=True,
+                    drop_last=True,  # otherwise we may pass a batch of size 1
                 )
             ):
                 out = mdl(
@@ -222,62 +224,71 @@ def model_fold(i_fold):
     # )
     # plt.savefig(os.path.join("figures", f"shap_violin_{study.study_name}.pdf"))
 
+    preds = (
+        mdl(
+            dataset.batch_test.x,
+            dataset.batch_test.edge_index,
+            dataset.batch_test.edge_attr,
+            dataset.batch_test.batch,
+            dataset.batch_test.y[:, 1:],
+        )
+        .detach()
+        .numpy()
+    )
+    ages = dataset.batch_test.y[:, 0].detach().numpy()
+    ids = dataset.test_ids
+    return pd.DataFrame(
+        index=ids, data={"ages": ages.ravel(), "preds": preds.ravel()}
+    )
+
 
 if __name__ == "__main__":
+    results = list()
     for i in range(data.n_folds):
-        model_fold(i)
-
+        results.append(model_fold(i))
+    pd.concat(results, axis=0).to_csv(
+        os.path.join("data", "age_predictions.csv")
+    )
 
 """
-IPython could not be loaded!
-[I 2023-03-22 16:09:34,432] A new study created in memory with name: gnns-graphs-tuning-i_fold=0-20230322T1609Z
-[I 2023-03-22 16:10:39,358] Trial 0 finished with value: 11.883670806884766 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 11.883670806884766.
-[I 2023-03-22 16:11:47,868] Trial 1 finished with value: 12.073939323425293 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 0 with value: 11.883670806884766.
-[I 2023-03-22 16:12:43,685] Trial 2 finished with value: 12.329141616821289 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.005190920940294755, 'n_epochs': 80, 'batch_log2': 2}. Best is trial 0 with value: 11.883670806884766.
-[I 2023-03-22 16:12:44,903] Trial 3 pruned.
-[I 2023-03-22 16:12:46,345] Trial 4 pruned.
+[I 2023-03-22 16:48:34,605] A new study created in memory with name: gnns-graphs-tuning-i_fold=0-20230322T1648Z
+[I 2023-03-22 16:49:27,027] Trial 0 finished with value: 11.035832405090332 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 11.035832405090332.
+[I 2023-03-22 16:50:23,455] Trial 1 finished with value: 12.510648727416992 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 0 with value: 11.035832405090332.
+[I 2023-03-22 16:50:24,576] Trial 2 pruned.
+[I 2023-03-22 16:50:25,597] Trial 3 pruned.
+[I 2023-03-22 16:50:31,589] Trial 4 pruned.
 {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}
-val mse:  11.884
-test mse: 14.330
-null mse: 46.149
-[I 2023-03-22 16:12:46,636] A new study created in memory with name: gnns-graphs-tuning-i_fold=1-20230322T1612Z
-[I 2023-03-22 16:13:53,800] Trial 0 finished with value: 10.574002265930176 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 10.574002265930176.
-[I 2023-03-22 16:15:03,883] Trial 1 finished with value: 10.738912582397461 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 0 with value: 10.574002265930176.
-[I 2023-03-22 16:15:59,821] Trial 2 finished with value: 9.057589530944824 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.005190920940294755, 'n_epochs': 80, 'batch_log2': 2}. Best is trial 2 with value: 9.057589530944824.
-[I 2023-03-22 16:16:06,284] Trial 3 pruned.
-[I 2023-03-22 16:16:07,837] Trial 4 pruned.
-{'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.005190920940294755, 'n_epochs': 80, 'batch_log2': 2}
-val mse:  9.058
-test mse: 13.116
-null mse: 43.882
-[I 2023-03-22 16:16:08,162] A new study created in memory with name: gnns-graphs-tuning-i_fold=2-20230322T1616Z
-[I 2023-03-22 16:17:10,248] Trial 0 finished with value: 17.58796501159668 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 17.58796501159668.
-[I 2023-03-22 16:18:11,466] Trial 1 finished with value: 18.17790412902832 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 0 with value: 17.58796501159668.
-[I 2023-03-22 16:19:00,700] Trial 2 finished with value: 13.553336143493652 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.005190920940294755, 'n_epochs': 80, 'batch_log2': 2}. Best is trial 2 with value: 13.553336143493652.
-[I 2023-03-22 16:19:01,822] Trial 3 pruned.
-[I 2023-03-22 16:19:03,128] Trial 4 pruned.
-{'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.005190920940294755, 'n_epochs': 80, 'batch_log2': 2}
-val mse:  13.553
-test mse: 8.014
-null mse: 26.468
-[I 2023-03-22 16:19:03,390] A new study created in memory with name: gnns-graphs-tuning-i_fold=3-20230322T1619Z
-[I 2023-03-22 16:19:58,915] Trial 0 finished with value: 11.165837287902832 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 11.165837287902832.
-[I 2023-03-22 16:20:54,794] Trial 1 finished with value: 10.194421768188477 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 1 with value: 10.194421768188477.
-[I 2023-03-22 16:21:10,662] Trial 2 pruned.
-[I 2023-03-22 16:21:56,621] Trial 3 finished with value: 7.404685020446777 and parameters: {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.0010669539286632004, 'n_epochs': 90, 'batch_log2': 3}. Best is trial 3 with value: 7.404685020446777.
-[I 2023-03-22 16:22:44,445] Trial 4 finished with value: 9.252674102783203 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.005248673409660328, 'n_epochs': 80, 'batch_log2': 2}. Best is trial 3 with value: 7.404685020446777.
+val mse:  11.036
+test mse: 15.027
+null mse: 45.881
+[I 2023-03-22 16:50:31,917] A new study created in memory with name: gnns-graphs-tuning-i_fold=1-20230322T1650Z
+[I 2023-03-22 16:51:22,816] Trial 0 finished with value: 14.802358627319336 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 14.802358627319336.
+[I 2023-03-22 16:52:15,618] Trial 1 finished with value: 12.924217224121094 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 1 with value: 12.924217224121094.
+[I 2023-03-22 16:52:57,513] Trial 2 finished with value: 14.011611938476562 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.005190920940294755, 'n_epochs': 80, 'batch_log2': 2}. Best is trial 1 with value: 12.924217224121094.
+[I 2023-03-22 16:52:58,472] Trial 3 pruned.
+[I 2023-03-22 16:54:21,268] Trial 4 finished with value: 17.370635986328125 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.005248673409660328, 'n_epochs': 80, 'batch_log2': 2}. Best is trial 1 with value: 12.924217224121094.
+{'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}
+val mse:  12.924
+test mse: 10.694
+null mse: 30.226
+[I 2023-03-22 16:54:21,629] A new study created in memory with name: gnns-graphs-tuning-i_fold=2-20230322T1654Z
+[I 2023-03-22 16:57:12,867] Trial 0 finished with value: 16.589147567749023 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 16.589147567749023.
+[I 2023-03-22 17:02:02,229] Trial 1 finished with value: 14.209061622619629 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 1 with value: 14.209061622619629.
+[I 2023-03-22 17:36:05,371] Trial 2 finished with value: 13.928359985351562 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.005190920940294755, 'n_epochs': 80, 'batch_log2': 2}. Best is trial 2 with value: 13.928359985351562.
+[I 2023-03-22 17:36:43,774] Trial 3 finished with value: 13.062106132507324 and parameters: {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.0010669539286632004, 'n_epochs': 90, 'batch_log2': 3}. Best is trial 3 with value: 13.062106132507324.
+[I 2023-03-22 17:36:45,797] Trial 4 pruned.
 {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.0010669539286632004, 'n_epochs': 90, 'batch_log2': 3}
-val mse:  7.405
-test mse: 13.756
-null mse: 33.097
-[I 2023-03-22 16:22:44,709] A new study created in memory with name: gnns-graphs-tuning-i_fold=4-20230322T1622Z
-[I 2023-03-22 16:23:40,722] Trial 0 finished with value: 20.705242156982422 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 20.705242156982422.
-[I 2023-03-22 16:24:38,140] Trial 1 finished with value: 21.06892204284668 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 0 with value: 20.705242156982422.
-[I 2023-03-22 16:25:26,340] Trial 2 finished with value: 21.489206314086914 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.005190920940294755, 'n_epochs': 80, 'batch_log2': 2}. Best is trial 0 with value: 20.705242156982422.
-[I 2023-03-22 16:26:15,025] Trial 3 finished with value: 18.545806884765625 and parameters: {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.0010669539286632004, 'n_epochs': 90, 'batch_log2': 3}. Best is trial 3 with value: 18.545806884765625.
-[I 2023-03-22 16:26:17,550] Trial 4 pruned.
+val mse:  13.062
+test mse: 14.236
+null mse: 35.465
+[I 2023-03-22 17:36:46,072] A new study created in memory with name: gnns-graphs-tuning-i_fold=3-20230322T1736Z
+[I 2023-03-22 17:37:31,204] Trial 0 finished with value: 23.890073776245117 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.008675143843171858, 'n_epochs': 80, 'batch_log2': 4}. Best is trial 0 with value: 23.890073776245117.
+[I 2023-03-22 17:38:20,395] Trial 1 finished with value: 19.88289451599121 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.005295088673159155, 'n_epochs': 70, 'batch_log2': 2}. Best is trial 1 with value: 19.88289451599121.
+[I 2023-03-22 17:38:21,387] Trial 2 pruned.
+[I 2023-03-22 17:39:00,878] Trial 3 finished with value: 18.8381404876709 and parameters: {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.0010669539286632004, 'n_epochs': 90, 'batch_log2': 3}. Best is trial 3 with value: 18.8381404876709.
+[I 2023-03-22 17:39:01,942] Trial 4 pruned.
 {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.0010669539286632004, 'n_epochs': 90, 'batch_log2': 3}
-val mse:  18.546
-test mse: 9.325
-null mse: 30.611
+val mse:  18.838
+test mse: 13.775
+null mse: 31.958
 """

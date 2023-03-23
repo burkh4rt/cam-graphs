@@ -15,7 +15,7 @@ import torch_geometric.data as t_data
 
 rng = np.random.default_rng(0)
 
-n_folds = 5
+n_folds = 4
 col_target = "av1451_age"
 
 df_bacs = (
@@ -203,9 +203,9 @@ if __name__ == "__main__":
 
 """
 total available: 222
-training set size: 144
-validation set size: 36
-test set size: 42
+training set size: 122
+validation set size: 52
+test set size: 48
 examplar graph:
  Data(x=[113, 2], edge_index=[2, 12769], edge_attr=[12769], y=[1, 3])
 """
