@@ -1,10 +1,12 @@
-# cam-ukbb-graphs
+# cam-graphs
 
-This code trains a simple graph neural network on biobank data using
-[pytorch-geometric](https://pytorch-geometric.readthedocs.io)
+This code trains a simple graph neural network on biobank/bacs data using
+[pytorch-geometric](https://pytorch-geometric.readthedocs.io). Hyperparameters
+are tuned with [optuna](https://optuna.org). Feature importances can then be
+assigned with [shap](https://shap.readthedocs.io).
 
 It requires datasets available on zfs to be placed in the folder `data`:
-`/zfs/mcb93/ukbb-graphs/data` and an environment as described in the
+`/zfs/mcb93/gnns-graphs/data` and an environment as described in the
 `requirements.txt` file.
 
 <!---
