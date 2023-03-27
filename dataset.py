@@ -78,7 +78,7 @@ f_data = lambda f, df_bacs: t_data.Data(
         np.column_stack(
             [
                 df_bacs.loc[f, [f"{mo}_{r}" for r in rois]].values
-                for mo in ["mri", "av1451"]
+                for mo in ["av1451"]  # ["mri"]
             ]
         ).astype(float),
         dtype=t.float,
@@ -179,7 +179,9 @@ class dataset:
         self.cols_xy1_ravelled = np.concatenate(
             [
                 np.column_stack(
-                    [[f"{mo}_{r}" for r in rois] for mo in ["mri", "av1451"]]
+                    [
+                        [f"{mo}_{r}" for r in rois] for mo in ["av1451"]
+                    ]  # ["mri"]]
                 ).reshape(-1),
                 np.array(["apoe4pos", "is_female"]),
             ]
@@ -200,12 +202,3 @@ if __name__ == "__main__":
             len(np.intersect1d(dataset(f1).test_ids, dataset(f2).test_ids))
             == 0
         )
-
-"""
-total available: 222
-training set size: 122
-validation set size: 52
-test set size: 48
-examplar graph:
- Data(x=[113, 2], edge_index=[2, 12769], edge_attr=[12769], y=[1, 3])
-"""

@@ -9,6 +9,12 @@ It requires datasets available on zfs to be placed in the folder `data`:
 `/zfs/mcb93/gnns-graphs/data` and an environment as described in the
 `requirements.txt` file.
 
+The code can also be run with [docker](https://www.docker.com):
+```sh
+docker build -t thistle .
+docker run --rm -ti -v $(pwd):/home/felixity thistle model.py
+```
+
 <!---
 format code with:
 ```
@@ -23,7 +29,7 @@ rsync -avhtXE \
     --delete \
     --force \
     --groupmap="*:abg" \
-    ~/Documents/cambridge/gnns-graphs \
+    ~/Documents/cambridge/gnns-graphs/ \
     abg-cluster1.psychol.private.cam.ac.uk:/zfs/mcb93/gnns-graphs
 ```
 
