@@ -78,7 +78,7 @@ f_data = lambda f, df_bacs: t_data.Data(
         np.column_stack(
             [
                 df_bacs.loc[f, [f"{mo}_{r}" for r in rois]].values
-                for mo in ["mri"]  # , "av1451"]
+                for mo in ["av1451"]  # ["mri"]
             ]
         ).astype(float),
         dtype=t.float,
@@ -179,7 +179,9 @@ class dataset:
         self.cols_xy1_ravelled = np.concatenate(
             [
                 np.column_stack(
-                    [[f"{mo}_{r}" for r in rois] for mo in ["mri"]] # , "av1451"]]
+                    [
+                        [f"{mo}_{r}" for r in rois] for mo in ["av1451"]
+                    ]  # ["mri"]]
                 ).reshape(-1),
                 np.array(["apoe4pos", "is_female"]),
             ]
