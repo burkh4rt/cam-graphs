@@ -1,16 +1,18 @@
-# cam-ukbb-graphs
+# gnns-graphs
 
-This code trains a simple graph neural network on biobank data using
-[pytorch-geometric](https://pytorch-geometric.readthedocs.io)
+This code trains a simple graph neural network on bacs/biobank data using
+[pytorch-geometric](https://pytorch-geometric.readthedocs.io). Hyperparameters
+are tuned with [optuna](https://optuna.org). Feature importances can then be
+assigned with [shap](https://shap.readthedocs.io).
 
 It requires datasets available on zfs to be placed in the folder `data`:
-`/zfs/mcb93/ukbb-graphs/data` and an environment as described in the
+`/zfs/mcb93/gnns-graphs/data` and an environment as described in the
 `requirements.txt` file.
 
 The code can also be run with [docker](https://www.docker.com):
 ```sh
-docker build -t thistle .
-docker run --rm -ti -v $(pwd):/home/felixity thistle model.py
+docker build -t burkh4rt/pyg .
+docker run --rm -ti -v $(pwd):/home/felixity burkh4rt/pyg model.py
 ```
 
 <!---
@@ -45,5 +47,11 @@ Create `reqirements.txt` file:
 ```
 source flashlight/bin/activate
 python3 -m pip list --format=freeze > requirements.txt
+```
+
+```
+docker buildx create --use --name mybuild node-amd64
+docker buildx create --append --name mybuild node-arm64
+docker buildx build --platform linux/arm64,linux/amd64 -t burkh4rt/pyg:latest --push .
 ```
 -->
