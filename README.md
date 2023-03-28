@@ -12,7 +12,7 @@ It requires datasets available on zfs to be placed in the folder `data`:
 The code can also be run with [docker](https://www.docker.com):
 ```sh
 docker build -t thistle .
-docker run --rm -ti -v $(pwd):/home/felixity thistle model.py
+docker run --rm -ti -v $(pwd):/src thistle model.py
 ```
 
 <!---
@@ -47,5 +47,11 @@ Create `reqirements.txt` file:
 ```
 source flashlight/bin/activate
 python3 -m pip list --format=freeze > requirements.txt
+```
+
+```
+docker buildx create --use --name mybuild node-amd64
+docker buildx create --append --name mybuild node-arm64
+docker buildx build --platform linux/arm64,linux/amd64,linux/arm/v7 -t burkh4rt/pyg:latest --push .
 ```
 -->
