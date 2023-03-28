@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 """
-Defines a simple graph-based model with convolution and readout layers
+Defines a graph-based model with convolution and readout layers;
+also allows one to supply graph-level side information as y[1:]
+(our convention is to let y[0] denote the graph-level label)
 """
 
 import numpy as np
@@ -17,6 +19,8 @@ dataset = dataset.dataset(0)
 
 
 class GCN(t.nn.Module):
+    """graph convolutional network model with hyperparameters"""
+
     def __init__(
         self,
         alpha_dropout=0.05,
@@ -26,6 +30,7 @@ class GCN(t.nn.Module):
         mean_train=dataset.mean_train,
         std_train=dataset.std_train,
     ):
+        """initialise the layers"""
         super().__init__()
         self.mean_train = mean_train
         self.std_train = std_train
@@ -56,6 +61,7 @@ class GCN(t.nn.Module):
         self.lin2 = Linear(self.dim_penultimate, 1)
 
     def forward(self, x, edge_index, edge_attr, batch, graph_feats):
+        """make predictions on a batch of data"""
         x1 = t.tanh(self.conv1(x, edge_index, edge_attr))
         x1 = self.agg(x1, batch)
         x1 = self.bnorm1(x1)
@@ -69,6 +75,9 @@ class GCN(t.nn.Module):
         return self.std_train * x + self.mean_train
 
     def as_function_of_x_y(self, x_y1):
+        """freeze the trained model to make predictions on numpy arrays of
+        features
+        """
         self.eval()
         n = x_y1.shape[0]
         outp = np.zeros(n).reshape(n, 1)
@@ -94,6 +103,10 @@ class GCN(t.nn.Module):
 
 
 if __name__ == "__main__":
+
+    # intialise the model and try a forward pass just to make sure everything
+    # works and all the dimensions are correct for a given dataset
+
     from torch_geometric.loader import DataLoader
 
     self = GCN(

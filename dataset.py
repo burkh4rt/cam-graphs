@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
 """
-Wrangles biobank data into a form appropriate for torch geometric
+Wrangles BACS data into a form appropriate for torch geometric
+
+The main class `dataset` forms cross-validated datasets for you and can be
+initialised with a fold number 0<=`fold`<n_folds for convenience
 """
 import itertools
 import os
@@ -15,9 +18,13 @@ import torch_geometric.data as t_data
 
 rng = np.random.default_rng(0)
 
+# set number of folds for cross-validation
 n_folds = 4
+
+# predictive target for supervised modelling
 col_target = "av1451_age"
 
+# load everything from bacs
 df_bacs = (
     pd.read_csv(os.path.join("data", "bacs_structural_data.csv"))
     .assign(
@@ -39,6 +46,7 @@ df_bacs = (
     .set_index("id_dt")
 )
 
+# regions of interest for which we have tau-PET data
 rois = [
     "_".join(x.split("_")[1:])
     for x in df_bacs.filter(regex="av1451_[0000-9999]").columns
@@ -52,11 +60,13 @@ assert set(df_bacs.filter(regex="av1451_[0000-9999]").columns) == set(
     f"av1451_{r}" for r in rois
 )
 
+# features to be used by the model
 cols_feats = [f"{mo}_{r}" for r in rois for mo in ["mri", "av1451"]] + [
     "apoe4pos",
     "is_female",
 ]
 
+# persons with full data
 ids = (
     df_bacs[cols_feats + [col_target]]
     .loc[lambda df: ~df.isna().any(axis=1)]
@@ -71,8 +81,10 @@ c_mat_bacs = (
 )
 assert set(c_mat_bacs.columns) == set(c_mat_bacs.index) == set(rois)
 
+# coordinates to express edges in sparse COOrdinate format
 senders, receivers = map(np.ravel, np.mgrid[0 : len(rois), 0 : len(rois)])
 
+# returns a graph for the person with id=f
 f_data = lambda f, df_bacs: t_data.Data(
     x=t.tensor(
         np.column_stack(
@@ -98,10 +110,15 @@ f_data = lambda f, df_bacs: t_data.Data(
 )
 
 n_ids = len(ids)
+
+# assigns each person to a data fold
 folds = rng.choice(n_folds, size=n_ids)
 
 
 class dataset:
+    """returns a dataset corresponding to testing on persons in fold `fold`,
+    validating on persons in fold `fold`+1, and training on persons from all
+    other folds"""
     def __init__(self, fold: int):
         assert 0 <= fold < n_folds
         self.ids = ids

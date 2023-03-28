@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 """
-Tunes hyperparameters with optuna
+Performs cross-validated graph-level regression;
+tunes hyperparameters with optuna;
+uses shap to explain feature importance
 """
 
 import datetime
@@ -11,7 +13,8 @@ import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 import optuna as opt
-import optuna.visualization.matplotlib as opt_mpl
+
+# import optuna.visualization.matplotlib as opt_mpl
 import pandas as pd
 import shap
 import torch as t
@@ -27,10 +30,14 @@ t.manual_seed(0)
 criterion = t.nn.MSELoss()
 
 
-def model_fold(i_fold):
+def model_fold(i_fold: int):
+    """train and test on fold `i_fold` of the dataset"""
+
     dataset = data.dataset(i_fold)
 
-    def loss_val(mdl):
+    def loss_val(mdl: t.nn.Module):
+        """model `mdl` loss on validation set"""
+
         mdl.eval()
         return criterion(
             mdl(
@@ -43,7 +50,9 @@ def model_fold(i_fold):
             dataset.batch_val.y[:, 0].reshape(-1, 1),
         )
 
-    def loss_test(mdl):
+    def loss_test(mdl: t.nn.Module):
+        """model `mdl` loss on test set"""
+
         mdl.eval()
         return criterion(
             mdl(
@@ -57,6 +66,7 @@ def model_fold(i_fold):
         )
 
     def loss_null():
+        """loss from predicting the training mean on the test set"""
         return criterion(
             dataset.mean_train
             * t.ones_like(dataset.batch_test.y[:, 0].reshape(-1, 1)),
@@ -64,6 +74,8 @@ def model_fold(i_fold):
         )
 
     def objective(trial):
+        """helper function for hyperparameter tuning"""
+
         mdl = model.GCN(
             alpha_dropout=trial.suggest_float("alpha_dropout", 0.0, 1e-1),
             gat_heads=trial.suggest_int("gat_heads", 1, 5),
@@ -138,11 +150,14 @@ def model_fold(i_fold):
         ),
     )
 
+    # do the optimising
     study.optimize(objective, n_trials=25)
 
+    # report results from optimisation
     print(study.best_params)
     print("val mse:  {:.3f}".format(study.best_value))
 
+    # load best-performing model
     mdl = model.GCN(
         **{
             k: v
@@ -170,6 +185,7 @@ def model_fold(i_fold):
     )
     mdl.eval()
 
+    # report performance on test set from best validated model
     print("test mse: {:.3f}".format(loss_test(mdl).detach().numpy()))
     print("null mse: {:.3f}".format(loss_null().detach().numpy()))
 
@@ -235,6 +251,7 @@ def model_fold(i_fold):
 
 
 if __name__ == "__main__":
+    # collect results from predicting on the test set of each fold
     results = list()
     for i in range(data.n_folds):
         results.append(model_fold(i))

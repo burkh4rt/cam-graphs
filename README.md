@@ -1,6 +1,6 @@
-# cam-graphs
+# gnns-graphs
 
-This code trains a simple graph neural network on biobank/bacs data using
+This code trains a simple graph neural network on bacs/biobank data using
 [pytorch-geometric](https://pytorch-geometric.readthedocs.io). Hyperparameters
 are tuned with [optuna](https://optuna.org). Feature importances can then be
 assigned with [shap](https://shap.readthedocs.io).
@@ -11,8 +11,8 @@ It requires datasets available on zfs to be placed in the folder `data`:
 
 The code can also be run with [docker](https://www.docker.com):
 ```sh
-docker build -t thistle .
-docker run --rm -ti -v $(pwd):/src thistle model.py
+docker build -t burkh4rt/pyg .
+docker run --rm -ti -v $(pwd):/home/felixity burkh4rt/pyg model.py
 ```
 
 <!---
@@ -52,6 +52,6 @@ python3 -m pip list --format=freeze > requirements.txt
 ```
 docker buildx create --use --name mybuild node-amd64
 docker buildx create --append --name mybuild node-arm64
-docker buildx build --platform linux/arm64,linux/amd64,linux/arm/v7 -t burkh4rt/pyg:latest --push .
+docker buildx build --platform linux/arm64,linux/amd64 -t burkh4rt/pyg:latest --push .
 ```
 -->
