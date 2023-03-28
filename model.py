@@ -30,7 +30,7 @@ class GCN(t.nn.Module):
         mean_train=dataset.mean_train,
         std_train=dataset.std_train,
     ):
-        """initialise the layers"""
+        """initialise the model & layers"""
         super().__init__()
         self.mean_train = mean_train
         self.std_train = std_train
@@ -60,8 +60,9 @@ class GCN(t.nn.Module):
         self.bnorm2 = BatchNorm1d(self.dim_penultimate)
         self.lin2 = Linear(self.dim_penultimate, 1)
 
-    def forward(self, x, edge_index, edge_attr, batch, graph_feats):
-        """make predictions on a batch of data"""
+    def make_rep(self, x, edge_index, edge_attr, batch, graph_feats):
+        """create representation layer as an intermediate layer in our
+        forward function"""
         x1 = t.tanh(self.conv1(x, edge_index, edge_attr))
         x1 = self.agg(x1, batch)
         x1 = self.bnorm1(x1)
@@ -70,6 +71,11 @@ class GCN(t.nn.Module):
         x = t.cat((x1, x, graph_feats), -1)
         x = self.a_dropout_layer(x)
         x = t.tanh(self.lin1(x))
+        return x
+
+    def forward(self, x, edge_index, edge_attr, batch, graph_feats):
+        """make predictions on a batch of data"""
+        x = self.make_rep(x, edge_index, edge_attr, batch, graph_feats)
         x = self.bnorm2(x)
         x = self.lin2(x)
         return self.std_train * x + self.mean_train
@@ -131,7 +137,7 @@ if __name__ == "__main__":
 
 """
 GCN(
-  (conv1): GATConv(1, 4, heads=4)
+  (conv1): GATConv(2, 4, heads=4)
   (agg): MultiAggregation([
     MeanAggregation(),
     StdAggregation(),
@@ -139,7 +145,7 @@ GCN(
   ], mode=cat)
   (bnorm1): BatchNorm1d(48, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (a_dropout_layer): AlphaDropout(p=0.1, inplace=False)
-  (lin1): Linear(in_features=163, out_features=4, bias=True)
+  (lin1): Linear(in_features=276, out_features=4, bias=True)
   (bnorm2): BatchNorm1d(4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (lin2): Linear(in_features=4, out_features=1, bias=True)
 )
