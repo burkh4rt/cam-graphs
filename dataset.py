@@ -19,7 +19,7 @@ import torch_geometric.data as t_data
 rng = np.random.default_rng(0)
 
 # set number of folds for cross-validation
-n_folds = 4
+n_folds = 5
 
 # predictive target for supervised modelling
 col_target = "av1451_age"
