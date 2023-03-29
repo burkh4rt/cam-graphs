@@ -1,6 +1,8 @@
 # use this file with:
 # docker build -t burkh4rt/pyg .
 # docker run --rm -ti -v $(pwd):/home/felixity burkh4rt/pyg model.py
+# docker buildx build --platform linux/arm64,linux/amd64,linux/arm64/v8 \
+#                     -t burkh4rt/pyg --push .
 
 FROM python:3.9.16-bullseye
 
@@ -28,10 +30,10 @@ RUN pip install --no-cache --upgrade \
                 torch_scatter==2.1.1 \
                 torch_sparse==0.6.17 \
                 torch_spline_conv==1.2.2 -f https://data.pyg.org/whl/torch-2.0.0+cpu.html \
- && chmod -R a+rx /opt/venv
+ && useradd felixity \
+ && chown -R felixity /opt/venv
 
 # switch to non-root user
-RUN useradd felixity
 USER felixity
 WORKDIR /home/felixity
 

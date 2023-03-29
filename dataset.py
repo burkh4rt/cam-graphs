@@ -19,10 +19,13 @@ import torch_geometric.data as t_data
 rng = np.random.default_rng(0)
 
 # set number of folds for cross-validation
-n_folds = 4
+n_folds = 6
 
 # predictive target for supervised modelling
 col_target = "av1451_age"
+
+# modalities -- can also include "mri" in the following list
+mod_list = ["av1451", "mri"]
 
 # load everything from bacs
 df_bacs = (
@@ -61,7 +64,7 @@ assert set(df_bacs.filter(regex="av1451_[0000-9999]").columns) == set(
 )
 
 # features to be used by the model
-cols_feats = [f"{mo}_{r}" for r in rois for mo in ["mri", "av1451"]] + [
+cols_feats = [f"{mo}_{r}" for r in rois for mo in mod_list] + [
     "apoe4pos",
     "is_female",
 ]
@@ -90,7 +93,7 @@ f_data = lambda f, df_bacs: t_data.Data(
         np.column_stack(
             [
                 df_bacs.loc[f, [f"{mo}_{r}" for r in rois]].values
-                for mo in ["av1451"]  # ["mri"]
+                for mo in mod_list
             ]
         ).astype(float),
         dtype=t.float,
@@ -111,14 +114,20 @@ f_data = lambda f, df_bacs: t_data.Data(
 
 n_ids = len(ids)
 
-# assigns each person to a data fold
-folds = rng.choice(n_folds, size=n_ids)
+# make sure all visits from the same subject lie in the same fold
+subjects, s_inv = np.unique(
+    [x.split("_")[0] for x in ids], return_inverse=True
+)
+assert np.all(subjects[s_inv] == np.array([x.split("_")[0] for x in ids]))
+subjects_folds = rng.choice(n_folds, size=n_ids)
+folds = subjects_folds[s_inv]
 
 
 class dataset:
     """returns a dataset corresponding to testing on persons in fold `fold`,
     validating on persons in fold `fold`+1, and training on persons from all
     other folds"""
+
     def __init__(self, fold: int):
         assert 0 <= fold < n_folds
         self.ids = ids
@@ -196,9 +205,7 @@ class dataset:
         self.cols_xy1_ravelled = np.concatenate(
             [
                 np.column_stack(
-                    [
-                        [f"{mo}_{r}" for r in rois] for mo in ["av1451"]
-                    ]  # ["mri"]]
+                    [[f"{mo}_{r}" for r in rois] for mo in mod_list]
                 ).reshape(-1),
                 np.array(["apoe4pos", "is_female"]),
             ]
@@ -219,3 +226,12 @@ if __name__ == "__main__":
             len(np.intersect1d(dataset(f1).test_ids, dataset(f2).test_ids))
             == 0
         )
+
+"""
+total available: 222
+training set size: 156
+validation set size: 29
+test set size: 37
+examplar graph:
+ Data(x=[113, 2], edge_index=[2, 12769], edge_attr=[12769], y=[1, 3])
+"""
