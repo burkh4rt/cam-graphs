@@ -19,7 +19,7 @@ import torch_geometric.data as t_data
 rng = np.random.default_rng(0)
 
 # set number of folds for cross-validation
-n_folds = 5
+n_folds = 6
 
 # predictive target for supervised modelling
 col_target = "av1451_age"
@@ -229,9 +229,9 @@ if __name__ == "__main__":
 
 """
 total available: 222
-training set size: 123
-validation set size: 52
-test set size: 47
+training set size: 156
+validation set size: 29
+test set size: 37
 examplar graph:
  Data(x=[113, 2], edge_index=[2, 12769], edge_attr=[12769], y=[1, 3])
 """

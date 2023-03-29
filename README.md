@@ -10,6 +10,7 @@ It requires datasets available on zfs to be placed in the folder `data`:
 `requirements.txt` file.
 
 The code can also be run with [docker](https://www.docker.com):
+
 ```sh
 docker build -t burkh4rt/pyg .
 docker run --rm -ti -v $(pwd):/home/felixity burkh4rt/pyg model.py
