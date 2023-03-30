@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 """
-Defines a simple graph-based model with convolution and readout layers
+Defines a graph-based model with convolution and readout layers;
+also allows one to supply graph-level side information as y[1:]
+(our convention is to let y[0] denote the graph-level label)
 """
 
 import numpy as np
@@ -15,14 +17,21 @@ import dataset
 
 
 class GCN(t.nn.Module):
+    """graph convolutional network model with hyperparameters"""
+
     def __init__(
         self,
         alpha_dropout=0.05,
         gat_heads=3,
         gat_out_channels=3,
         dim_penultimate=5,
+        mean_train=dataset.mean_train,
+        std_train=dataset.std_train,
     ):
+        """initialise the model & layers"""
         super().__init__()
+        self.mean_train = mean_train
+        self.std_train = std_train
         self.gat_heads = gat_heads
         self.gat_out_channels = gat_out_channels
         self.dim_penultimate = dim_penultimate
@@ -49,7 +58,9 @@ class GCN(t.nn.Module):
         self.bnorm2 = BatchNorm1d(self.dim_penultimate)
         self.lin2 = Linear(self.dim_penultimate, 1)
 
-    def forward(self, x, edge_index, edge_attr, batch, graph_feats):
+    def make_rep(self, x, edge_index, edge_attr, batch, graph_feats):
+        """create representation layer as an intermediate layer in our
+        forward function"""
         x1 = t.tanh(self.conv1(x, edge_index, edge_attr))
         x1 = self.agg(x1, batch)
         x1 = self.bnorm1(x1)
@@ -58,11 +69,19 @@ class GCN(t.nn.Module):
         x = t.cat((x1, x, graph_feats), -1)
         x = self.a_dropout_layer(x)
         x = t.tanh(self.lin1(x))
+        return x
+
+    def forward(self, x, edge_index, edge_attr, batch, graph_feats):
+        """make predictions on a batch of data"""
+        x = self.make_rep(x, edge_index, edge_attr, batch, graph_feats)
         x = self.bnorm2(x)
         x = self.lin2(x)
-        return dataset.std_train * x + dataset.mean_train
+        return self.std_train * x + self.mean_train
 
     def as_function_of_x_y(self, x_y1):
+        """freeze the trained model to make predictions on numpy arrays of
+        features
+        """
         self.eval()
         n = x_y1.shape[0]
         outp = np.zeros(n).reshape(n, 1)
@@ -88,6 +107,9 @@ class GCN(t.nn.Module):
 
 
 if __name__ == "__main__":
+    # intialise the model and try a forward pass just to make sure everything
+    # works and all the dimensions are correct for a given dataset
+
     from torch_geometric.loader import DataLoader
 
     self = GCN(
@@ -111,7 +133,7 @@ if __name__ == "__main__":
     except Exception:
         print("forward function does not work")
 
-""" output:
+"""
 GCN(
   (conv1): GATConv(1, 4, heads=4)
   (agg): MultiAggregation([
@@ -121,7 +143,7 @@ GCN(
   ], mode=cat)
   (bnorm1): BatchNorm1d(48, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (a_dropout_layer): AlphaDropout(p=0.1, inplace=False)
-  (lin1): Linear(in_features=118, out_features=4, bias=True)
+  (lin1): Linear(in_features=116, out_features=4, bias=True)
   (bnorm2): BatchNorm1d(4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (lin2): Linear(in_features=4, out_features=1, bias=True)
 )
