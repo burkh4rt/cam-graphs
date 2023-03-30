@@ -71,7 +71,7 @@ target_plus_graph_features = [
     "vol_grey_matter_25006_2_0",
     "vol_white_matter_25008_2_0",
     "body_mass_index_bmi_f21001_2_0",
-    # "mean_time_to_correctly_identify_matches_f20023_2_0",
+    "mean_time_to_correctly_identify_matches_f20023_2_0",
     # "maximum_digits_remembered_correctly_f4282_2_0",
 ]
 
@@ -253,10 +253,10 @@ if __name__ == "__main__":
 
 
 """
-total available: 27439
+total available: 27380
 training set size: 10000
-validation set size: 16578
-test set size: 861
+validation set size: 16521
+test set size: 859
 examplar graph:
- Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 7])
+ Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 8])
 """

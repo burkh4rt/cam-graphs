@@ -143,7 +143,7 @@ GCN(
   ], mode=cat)
   (bnorm1): BatchNorm1d(48, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (a_dropout_layer): AlphaDropout(p=0.1, inplace=False)
-  (lin1): Linear(in_features=116, out_features=4, bias=True)
+  (lin1): Linear(in_features=117, out_features=4, bias=True)
   (bnorm2): BatchNorm1d(4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
   (lin2): Linear(in_features=4, out_features=1, bias=True)
 )
