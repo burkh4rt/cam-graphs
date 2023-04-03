@@ -9,9 +9,12 @@ import os
 import warnings
 
 import matplotlib.pyplot as plt
+import numpy as np
 import optuna as opt
 import optuna.visualization.matplotlib as opt_mpl
+import shap
 import torch as t
+import torch_geometric as pyg
 import torch_geometric.loader as t_loader
 
 import dataset
@@ -19,7 +22,7 @@ import model
 
 warnings.simplefilter("ignore", category=opt.exceptions.ExperimentalWarning)
 
-t.manual_seed(0)
+pyg.seed_everything(0)
 criterion = t.nn.MSELoss()
 
 
@@ -62,8 +65,8 @@ def loss_null():
 def objective(trial):
     mdl = model.GCN(
         alpha_dropout=trial.suggest_float("alpha_dropout", 0.0, 1e-1),
-        gat_heads=trial.suggest_int("gat_heads", 1, 5),
-        gat_out_channels=trial.suggest_int("gat_out_channels", 1, 5),
+        gat_heads=trial.suggest_int("gat_heads", 1, 3),
+        gat_out_channels=trial.suggest_int("gat_out_channels", 1, 3),
         dim_penultimate=trial.suggest_int("dim_penultimate", 5, 25, step=5),
     )
     opt_type = trial.suggest_categorical("optimizer", ["Adagrad", "Adam"])
@@ -82,6 +85,7 @@ def objective(trial):
                     "batch_size", 2**8, 2**10, log=True
                 ),
                 shuffle=True,
+                drop_last=True,  # otherwise we may pass a batch of size 1
             )
         ):
             out = mdl(
@@ -177,15 +181,43 @@ if __name__ == "__main__":
     opt_mpl.plot_contour(study, params=feats_by_imps[:2])
     plt.show()
 
+    array_test = np.row_stack(
+        [
+            np.concatenate(
+                [
+                    d.x.detach().numpy().reshape(-1),
+                    d.edge_attr.detach().numpy().reshape(-1),
+                    d.y[:, 1:].detach().numpy().reshape(-1),
+                ]
+            )
+            for d in dataset.data_test
+        ]
+    )
+
+    # too many variables for shap -- we get exit code 137 SIGKILL
+    # explainer = shap.explainers.Permutation(
+    #     mdl.as_function_of_x_attr_y,
+    #     array_test,
+    #     feature_names=list(dataset.names_x_attr_y_ravelled),
+    #     seed=0,
+    #     max_evals=7702
+    # )
+    # shap_values = explainer(array_test)
+    #
+    # fig = plt.figure()
+    # shap.plots.bar(shap_values, show=False)
+    # fig.savefig(os.path.join("figures", f"shap_{study.study_name}.pdf"))
+    # plt.gcf().show()
+
 """
-[I 2023-03-22 13:16:35,652] A new study created in memory with name: gnns-graphs-tuning-20230322T1316Z
-[I 2023-03-22 13:23:14,105] Trial 0 finished with value: 38.79991912841797 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 5, 'gat_out_channels': 4, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.0008795585311974417, 'n_epochs': 20, 'batch_size': 683}. Best is trial 0 with value: 38.79991912841797.
-[I 2023-03-22 13:28:14,450] Trial 1 finished with value: 31.506887435913086 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 5, 'gat_out_channels': 5, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}. Best is trial 1 with value: 31.506887435913086.
-[I 2023-03-22 13:31:19,788] Trial 2 finished with value: 31.826675415039062 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 2, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.0005628109945722505, 'n_epochs': 15, 'batch_size': 273}. Best is trial 1 with value: 31.506887435913086.
-[I 2023-03-22 13:32:07,044] Trial 3 pruned.
-[I 2023-03-22 13:35:34,363] Trial 4 finished with value: 29.845834732055664 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}. Best is trial 4 with value: 29.845834732055664.
-{'alpha_dropout': 0.012203823484477884, 'gat_heads': 3, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}
-val mse:  29.846
-test mse: 29.696
-null mse: 54.910
+[I 2023-04-03 14:51:48,629] A new study created in memory with name: gnns-graphs-tuning-20230403T1351Z
+[I 2023-04-03 15:03:13,808] Trial 0 finished with value: 33.98548126220703 and parameters: {'alpha_dropout': 0.03745401188473625, 'gat_heads': 3, 'gat_out_channels': 3, 'dim_penultimate': 15, 'optimizer': 'Adagrad', 'lr': 0.0015227525095137954, 'wd': 0.0008795585311974417, 'n_epochs': 20, 'batch_size': 683}. Best is trial 0 with value: 33.98548126220703.
+[I 2023-04-03 15:11:54,338] Trial 1 finished with value: 28.95796775817871 and parameters: {'alpha_dropout': 0.0020584494295802446, 'gat_heads': 3, 'gat_out_channels': 3, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}. Best is trial 1 with value: 28.95796775817871.
+[I 2023-04-03 15:19:08,308] Trial 2 finished with value: 30.795333862304688 and parameters: {'alpha_dropout': 0.06118528947223795, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.002797064039425238, 'wd': 0.0005628109945722505, 'n_epochs': 15, 'batch_size': 273}. Best is trial 1 with value: 28.95796775817871.
+[I 2023-04-03 15:28:43,175] Trial 3 finished with value: 33.78669357299805 and parameters: {'alpha_dropout': 0.06075448519014384, 'gat_heads': 1, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adagrad', 'lr': 0.0037415239225603364, 'wd': 0.00018790490260574548, 'n_epochs': 20, 'batch_size': 471}. Best is trial 1 with value: 28.95796775817871.
+[I 2023-04-03 15:36:21,101] Trial 4 finished with value: 29.377939224243164 and parameters: {'alpha_dropout': 0.012203823484477884, 'gat_heads': 2, 'gat_out_channels': 1, 'dim_penultimate': 25, 'optimizer': 'Adam', 'lr': 0.0038053996848046987, 'wd': 0.0005680612190600297, 'n_epochs': 15, 'batch_size': 330}. Best is trial 1 with value: 28.95796775817871.
+{'alpha_dropout': 0.0020584494295802446, 'gat_heads': 3, 'gat_out_channels': 3, 'dim_penultimate': 10, 'optimizer': 'Adam', 'lr': 0.00373818018663584, 'wd': 0.000572280788469014, 'n_epochs': 15, 'batch_size': 383}
+val mse:  28.958
+test mse: 31.001
+null mse: 51.434
 """

@@ -70,7 +70,7 @@ target_plus_graph_features = [
     "vol_white_matter_25008_2_0",
     "body_mass_index_bmi_f21001_2_0",
     "mean_time_to_correctly_identify_matches_f20023_2_0",
-    "maximum_digits_remembered_correctly_f4282_2_0",
+    # "maximum_digits_remembered_correctly_f4282_2_0",
 ]
 
 senders, receivers = map(
@@ -132,32 +132,34 @@ fids = (
     (~aff1.isna())
     .loc[lambda df: df.all(axis=1)]
     .index.intersection((~s1.isna()).loc[lambda df: df.all(axis=1)].index)
+    .values
 )
 
-train_ids = rng.choice(np.arange(len(fids)), size=10000, replace=False)
-val_ids = rng.choice(
-    np.setdiff1d(np.arange(len(fids)), train_ids), size=5000, replace=False
+test_fids = np.intersect1d(
+    fids,
+    pd.read_csv(
+        os.path.join("data", "biobank-length2-fids.csv")
+    ).values.ravel(),
 )
-test_ids = np.setdiff1d(np.arange(len(fids)), np.union1d(train_ids, val_ids))
-assert (
-    len(np.intersect1d(train_ids, val_ids))
-    == len(np.intersect1d(train_ids, test_ids))
-    == len(np.intersect1d(val_ids, test_ids))
-    == 0
+
+val_fids = rng.choice(
+    np.setdiff1d(fids, test_fids),
+    size=int(np.max([1000.0, 0.1 * len(fids)])),
+    replace=False,
 )
-assert len(np.union1d(train_ids, np.union1d(val_ids, test_ids))) == len(fids)
+train_fids = np.setdiff1d(fids, np.union1d(val_fids, test_fids))
 
 aff1 = aff1.loc[fids]
 s1 = s1.loc[fids]
 y1 = s1[target_plus_graph_features]
 s1 = s1.drop(columns=y1.columns)
-s1 -= s1.loc[fids[train_ids]].mean(axis=0)
-s1 /= s1.loc[fids[train_ids]].std(axis=0)
+s1 -= s1.loc[train_fids].mean(axis=0)
+s1 /= s1.loc[train_fids].std(axis=0)
 y1.loc[:, target_plus_graph_features[1:]] -= y1.loc[
-    fids[train_ids], target_plus_graph_features[1:]
+    train_fids, target_plus_graph_features[1:]
 ].mean(axis=0)
 y1.loc[:, target_plus_graph_features[1:]] /= y1.loc[
-    fids[train_ids], target_plus_graph_features[1:]
+    train_fids, target_plus_graph_features[1:]
 ].std(axis=0)
 
 # reconstitute affinity matrices from lower triangular portion
@@ -200,27 +202,25 @@ f_data = lambda f: t_data.Data(
     ),
 )
 
-num_node_features = f_data(fids[0]).num_node_features
-num_nodes = f_data(fids[0]).num_nodes
+f0 = f_data(fids[0])
+num_node_features = f0.num_node_features
+num_nodes = f0.num_nodes
 num_graph_features = len(target_plus_graph_features[1:])
+num_edge_features = f0.num_edge_features
+num_edges = f0.num_edges
 
-data_list = [f_data(f) for f in fids]
-data_train = [data_list[i] for i in train_ids]
-data_val = [data_list[i] for i in val_ids]
-data_test = [data_list[i] for i in test_ids]
+data_train = [f_data(f) for f in train_fids]
+data_val = [f_data(f) for f in val_fids]
+data_test = [f_data(f) for f in test_fids]
 
-mean_train = np.array(
-    y1.loc[fids[train_ids], target_plus_graph_features[0]]
-).mean()
-std_train = np.array(
-    y1.loc[fids[train_ids], target_plus_graph_features[0]]
-).std()
+mean_train = np.array(y1.loc[train_fids, target_plus_graph_features[0]]).mean()
+std_train = np.array(y1.loc[train_fids, target_plus_graph_features[0]]).std()
 
 batch_val = next(
     iter(
         t_loader.DataLoader(
             data_val,
-            batch_size=len(val_ids),
+            batch_size=len(val_fids),
             shuffle=False,
         )
     )
@@ -230,25 +230,40 @@ batch_test = next(
     iter(
         t_loader.DataLoader(
             data_test,
-            batch_size=len(test_ids),
+            batch_size=len(test_fids),
             shuffle=False,
         )
     )
 )
 
+batch_0 = next(
+    iter(
+        t_loader.DataLoader(
+            data_test,
+            batch_size=1,
+            shuffle=False,
+        )
+    )
+)
+
+names_x_attr_y_ravelled = np.array(
+    chis_rois
+    + [f"{chis_rois[i]}_x_{chis_rois[j]}" for i, j in zip(senders, receivers)]
+    + target_plus_graph_features[1:]
+).ravel()
+
 if __name__ == "__main__":
     print(f"total available: {len(fids)}")
-    print(f"training set size: {len(train_ids)}")
-    print(f"validation set size: {len(val_ids)}")
-    print(f"test set size: {len(test_ids)}")
-    print(f"examplar graph:\n {f_data(fids[0])}")
-
+    print(f"training set size: {len(train_fids)}")
+    print(f"validation set size: {len(val_fids)}")
+    print(f"test set size: {len(test_fids)}")
+    print(f"examplar graph:\n {f_data(train_fids[0])}")
 
 """
-total available: 20113
-training set size: 10000
-validation set size: 5000
-test set size: 5113
+total available: 27782
+training set size: 24145
+validation set size: 2778
+test set size: 859
 examplar graph:
- Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 8])
+ Data(x=[62, 1], edge_index=[2, 3844], edge_attr=[3844, 1], y=[1, 7])
 """
