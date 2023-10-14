@@ -5,33 +5,16 @@ This code trains a simple graph neural network on bacs/biobank data using
 are tuned with [optuna](https://optuna.org). Feature importances can then be
 assigned with [shap](https://shap.readthedocs.io).
 
-It requires datasets available on zfs to be placed in the folder `data`:
-`/zfs/mcb93/gnns-graphs/data` and an environment as described in the
-`requirements.txt` file.
+The code operates on datasets that are proprietary, and so is only shared for
+illustrative purposes. The main script is [xvalidate.py](./xvalidate.py).
 
-The code can also be run with [docker](https://www.docker.com):
-
-```sh
-docker build -t burkh4rt/pyg .
-docker run --rm -ti -v $(pwd):/home/felixity burkh4rt/pyg model.py
-```
+Feel free to reuse/repurpose as you see fit.
 
 <!---
 format code with:
 ```
 black .
 prettier --write --print-width 79 --prose-wrap always *.md
-```
-
-Send all to zfs with:
-```sh
-rsync -avhtXE \
-    --chmod=770 \
-    --delete \
-    --force \
-    --groupmap="*:abg" \
-    ~/Documents/cambridge/gnns-graphs/ \
-    abg-cluster1.psychol.private.cam.ac.uk:/zfs/mcb93/gnns-graphs
 ```
 
 Create venv:
