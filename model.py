@@ -42,7 +42,6 @@ class GCN(t.nn.Module):
             self.gat_out_channels,
             heads=self.gat_heads,
             add_self_loops=False,  # we've already included these
-            improved=True,
             bias=False,
         )
         self.agg = aggr.MultiAggregation(
