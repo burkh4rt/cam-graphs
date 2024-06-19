@@ -21,10 +21,10 @@ Create venv:
 ```
 python3 -m venv flashlight
 source flashlight/bin/activate
-pip3 install --upgrade torch torchvision torchaudio
+pip3 install torch torchvision torchaudio
 pip3 install --verbose git+https://github.com/pyg-team/pyg-lib.git
-pip3 install --upgrade torch_geometric torch_scatter torch_sparse torch_cluster torch_spline_conv
-pip3 install --upgrade shap optuna matplotlib
+pip3 install torch_geometric torch_scatter torch_sparse torch_cluster torch_spline_conv
+pip3 install shap optuna matplotlib
 ```
 
 Create `reqirements.txt` file:
